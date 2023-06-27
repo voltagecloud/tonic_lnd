@@ -107,6 +107,12 @@ pub type VersionerClient =
 pub type SignerClient =
     signrpc::signer_client::SignerClient<InterceptedService<Channel, MacaroonInterceptor>>;
 
+/// Convenience type alias for router client.
+#[cfg(feature = "routerrpc")]
+pub type RouterClient = routerrpc::router_client::RouterClient<
+    tonic::codegen::InterceptedService<Channel, MacaroonInterceptor>,
+>;
+
 /// The client returned by `connect` function
 ///
 /// This is a convenience type which you most likely want to use instead of raw client.
@@ -122,6 +128,8 @@ pub struct Client {
     peers: PeersClient,
     #[cfg(feature = "versionrpc")]
     version: VersionerClient,
+    #[cfg(feature = "routerrpc")]
+    router: RouterClient,
 }
 
 impl Client {
@@ -153,6 +161,12 @@ impl Client {
     #[cfg(feature = "peersrpc")]
     pub fn peers(&mut self) -> &mut PeersClient {
         &mut self.peers
+    }
+
+    /// Returns the router client.
+    #[cfg(feature = "routerrpc")]
+    pub fn router(&mut self) -> &mut RouterClient {
+        &mut self.router
     }
 }
 
@@ -192,6 +206,11 @@ pub mod signrpc {
 #[cfg(feature = "peersrpc")]
 pub mod peersrpc {
     tonic::include_proto!("peersrpc");
+}
+
+#[cfg(feature = "routerrpc")]
+pub mod routerrpc {
+    tonic::include_proto!("routerrpc");
 }
 
 pub mod verrpc {
@@ -252,6 +271,7 @@ where
     MP: AsRef<Path> + Into<PathBuf> + std::fmt::Debug,
 {
     let address_str = address.to_string();
+
     #[allow(unused_variables)]
     let conn = try_map_err!(address.try_into(), |error| {
         InternalConnectError::InvalidAddress {
@@ -295,7 +315,12 @@ where
             interceptor.clone(),
         ),
         #[cfg(feature = "versionrpc")]
-        version: verrpc::versioner_client::VersionerClient::with_interceptor(conn, interceptor),
+        version: verrpc::versioner_client::VersionerClient::with_interceptor(
+            conn.clone(),
+            interceptor.clone(),
+        ),
+        #[cfg(feature = "routerrpc")]
+        router: routerrpc::router_client::RouterClient::with_interceptor(conn, interceptor),
     };
     Ok(client)
 }
