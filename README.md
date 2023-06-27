@@ -19,13 +19,19 @@ but accepts an environment variable `LND_REPO_DIR` which overrides the vendored 
 This can be used to test new features in non-released `lnd`.
 (Actually, the motivating project using this library was that case. :))
 
+## Features
+
+Since most of the LND RPCs supported by this crate can be used in isolation, and your project likely only needs a subset of these RPCs, we expose each RPC under [Cargo feature gates](https://doc.rust-lang.org/cargo/reference/features.html). See the Cargo manifest for the [latest supported features](https://github.com/Kixunil/tonic_lnd/blob/master/Cargo.toml)
+
+All features are included by default, but you can explicitly select the features you want for a [slimmer dependency and faster compilations](https://github.com/Kixunil/tonic_lnd/pull/29#issuecomment-1352385426).
+
 ## Usage
 
 There's no setup needed beyond adding the crate to your `Cargo.toml`.
 If you need to change the `*.proto` files from which the client is generated, set the environment variable `LND_REPO_DIR` to a directory with cloned [`lnd`](https://github.com/lightningnetwork/lnd.git) during build.
 
 Here's an example of retrieving information from LND (`[getinfo](https://api.lightning.community/#getinfo)` call).
-You can find the same example in crate root for your convenience.
+You can find this and more [examples in crate root](https://github.com/Kixunil/tonic_lnd/tree/master/examples) for your convenience.
 
 ```rust
 // This program accepts three arguments: address, cert file, macaroon file
