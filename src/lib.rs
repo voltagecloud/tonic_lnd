@@ -74,9 +74,7 @@ pub use error::ConnectError;
 use error::InternalConnectError;
 use std::convert::TryInto;
 use std::path::{Path, PathBuf};
-#[allow(unused_imports)]
 use tonic::codegen::InterceptedService;
-#[allow(unused_imports)]
 use tonic::transport::Channel;
 
 #[cfg(feature = "tracing")]
@@ -227,6 +225,7 @@ pub mod routerrpc {
     tonic::include_proto!("routerrpc");
 }
 
+#[cfg(feature = "versionrpc")]
 pub mod verrpc {
     tonic::include_proto!("verrpc");
 }
@@ -291,7 +290,6 @@ where
 {
     let address_str = address.to_string();
 
-    #[allow(unused_variables)]
     let conn = try_map_err!(address.try_into(), |error| {
         InternalConnectError::InvalidAddress {
             address: address_str.clone(),
@@ -309,7 +307,6 @@ where
 
     let macaroon = load_macaroon(macaroon_file).await?;
 
-    #[allow(unused_variables)]
     let interceptor = MacaroonInterceptor { macaroon };
 
     let client = Client {
