@@ -20,6 +20,7 @@ fn main() -> std::io::Result<()> {
         "lightning.proto",
         "peersrpc/peers.proto",
         "verrpc/verrpc.proto",
+        "routerrpc/router.proto",
     ];
 
     let proto_paths: Vec<_> = protos
