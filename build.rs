@@ -21,6 +21,7 @@ fn main() -> std::io::Result<()> {
         "peersrpc/peers.proto",
         "verrpc/verrpc.proto",
         "routerrpc/router.proto",
+        "invoicesrpc/invoices.proto",
     ];
 
     let proto_paths: Vec<_> = protos

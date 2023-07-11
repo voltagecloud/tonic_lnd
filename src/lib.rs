@@ -113,6 +113,12 @@ pub type RouterClient = routerrpc::router_client::RouterClient<
     tonic::codegen::InterceptedService<Channel, MacaroonInterceptor>,
 >;
 
+/// Convenience type alias for invoices client.
+#[cfg(feature = "invoicesrpc")]
+pub type InvoicesClient = invoicesrpc::invoices_client::InvoicesClient<
+    tonic::codegen::InterceptedService<Channel, MacaroonInterceptor>,
+>;
+
 /// The client returned by `connect` function
 ///
 /// This is a convenience type which you most likely want to use instead of raw client.
@@ -130,6 +136,8 @@ pub struct Client {
     version: VersionerClient,
     #[cfg(feature = "routerrpc")]
     router: RouterClient,
+    #[cfg(feature = "invoicesrpc")]
+    invoices: InvoicesClient,
 }
 
 impl Client {
@@ -167,6 +175,12 @@ impl Client {
     #[cfg(feature = "routerrpc")]
     pub fn router(&mut self) -> &mut RouterClient {
         &mut self.router
+    }
+
+    /// Returns the invoices client.
+    #[cfg(feature = "invoicesrpc")]
+    pub fn invoices(&mut self) -> &mut InvoicesClient {
+        &mut self.invoices
     }
 }
 
@@ -215,6 +229,11 @@ pub mod routerrpc {
 
 pub mod verrpc {
     tonic::include_proto!("verrpc");
+}
+
+#[cfg(feature = "invoicesrpc")]
+pub mod invoicesrpc {
+    tonic::include_proto!("invoicesrpc");
 }
 
 /// Supplies requests with macaroon
@@ -320,7 +339,15 @@ where
             interceptor.clone(),
         ),
         #[cfg(feature = "routerrpc")]
-        router: routerrpc::router_client::RouterClient::with_interceptor(conn, interceptor),
+        router: routerrpc::router_client::RouterClient::with_interceptor(
+            conn.clone(),
+            interceptor.clone(),
+        ),
+        #[cfg(feature = "invoicesrpc")]
+        invoices: invoicesrpc::invoices_client::InvoicesClient::with_interceptor(
+            conn.clone(),
+            interceptor.clone(),
+        ),
     };
     Ok(client)
 }
