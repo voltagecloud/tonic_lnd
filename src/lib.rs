@@ -225,6 +225,7 @@ pub mod routerrpc {
     tonic::include_proto!("routerrpc");
 }
 
+#[cfg(feature = "versionrpc")]
 pub mod verrpc {
     tonic::include_proto!("verrpc");
 }
