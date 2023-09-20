@@ -74,6 +74,7 @@ pub use error::ConnectError;
 use error::InternalConnectError;
 use std::convert::TryInto;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use tonic::codegen::InterceptedService;
 use tonic::transport::Channel;
 
@@ -351,19 +352,26 @@ where
 
 mod tls {
     use crate::error::{ConnectError, InternalConnectError};
-    use rustls::{Certificate, RootCertStore, ServerCertVerified, TLSError};
-    use std::path::{Path, PathBuf};
-    use webpki::DNSNameRef;
+    use rustls::{
+        client::{ClientConfig, ServerCertVerified, ServerCertVerifier},
+        Certificate, Error as TLSError, ServerName,
+    };
+    use std::{
+        path::{Path, PathBuf},
+        sync::Arc,
+        time::SystemTime,
+    };
+    use tonic::transport::ClientTlsConfig;
 
     pub(crate) async fn config(
         path: impl AsRef<Path> + Into<PathBuf>,
-    ) -> Result<tonic::transport::ClientTlsConfig, ConnectError> {
-        let mut tls_config = rustls::ClientConfig::new();
-        tls_config
-            .dangerous()
-            .set_certificate_verifier(std::sync::Arc::new(CertVerifier::load(path).await?));
-        tls_config.set_protocols(&["h2".into()]);
-        Ok(tonic::transport::ClientTlsConfig::new().rustls_client_config(tls_config))
+    ) -> Result<ClientTlsConfig, ConnectError> {
+        let tls_config = ClientConfig::builder()
+            .with_safe_defaults()
+            .with_custom_certificate_verifier(Arc::new(CertVerifier::load(path).await?))
+            .with_no_client_auth();
+
+        Ok(ClientTlsConfig::new().rustls_client_config(tls_config))
     }
 
     pub(crate) struct CertVerifier {
@@ -398,23 +406,25 @@ mod tls {
         }
     }
 
-    impl rustls::ServerCertVerifier for CertVerifier {
+    impl ServerCertVerifier for CertVerifier {
         fn verify_server_cert(
             &self,
-            _roots: &RootCertStore,
-            presented_certs: &[Certificate],
-            _dns_name: DNSNameRef<'_>,
+            end_entity: &Certificate,
+            intermediates: &[Certificate],
+            server_name: &ServerName,
+            scts: &mut dyn Iterator<Item = &[u8]>,
             _ocsp_response: &[u8],
+            now: SystemTime,
         ) -> Result<ServerCertVerified, TLSError> {
-            if self.certs.len() != presented_certs.len() {
+            if self.certs.len() != intermediates.len() {
                 return Err(TLSError::General(format!(
                     "Mismatched number of certificates (Expected: {}, Presented: {})",
                     self.certs.len(),
-                    presented_certs.len()
+                    intermediates.len()
                 )));
             }
 
-            for (c, p) in self.certs.iter().zip(presented_certs.iter()) {
+            for (c, p) in self.certs.iter().zip(intermediates.iter()) {
                 if *p.0 != **c {
                     return Err(TLSError::General(format!(
                         "Server certificates do not match ours"
