@@ -1,7 +1,7 @@
 [package]
 name = "fedimint-tonic-lnd"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 description = "An async library implementing LND RPC via tonic and prost. Forked from https://github.com/Kixunil/tonic_lnd"
 homepage = "https://github.com/fedimint/tonic_lnd"
 repository = "https://github.com/fedimint/tonic_lnd"
