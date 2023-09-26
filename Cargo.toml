@@ -27,9 +27,12 @@ prost = "0.12.0"
 rustls = { version = "0.21.0", features = ["dangerous_configuration"] }
 rustls-pemfile = "1.0.0"
 hex = "0.4.3"
+hyper = { version = "0.14.27", features = ["client"] }
+hyper-rustls = { version = "0.24.1", features = ["http2"] }
 tokio = { version = "1.32.0", features = ["fs"] }
 tokio-stream = { version = "0.1", features = ["net"] }
-tracing = { version = "0.1", features = ["log"], optional = true }
+tower = "0.4.13"
+http-body = "0.4.5"
 
 [build-dependencies]
 tonic-build = "0.10.0"

@@ -72,51 +72,47 @@ pub extern crate tonic;
 
 pub use error::ConnectError;
 use error::InternalConnectError;
-use std::convert::TryInto;
+use http_body::combinators::UnsyncBoxBody;
+use hyper::client::HttpConnector;
+use hyper::Uri;
+use hyper_rustls::HttpsConnector;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use tonic::codegen::InterceptedService;
-use tonic::transport::Channel;
+use tonic::codegen::{Bytes, InterceptedService};
+use tonic::Status;
 
-#[cfg(feature = "tracing")]
-use tracing;
+type Service = InterceptedService<
+    hyper::Client<HttpsConnector<HttpConnector>, UnsyncBoxBody<Bytes, Status>>,
+    MacaroonInterceptor,
+>;
 
 /// Convenience type alias for lightning client.
 #[cfg(feature = "lightningrpc")]
-pub type LightningClient =
-    lnrpc::lightning_client::LightningClient<InterceptedService<Channel, MacaroonInterceptor>>;
+pub type LightningClient = lnrpc::lightning_client::LightningClient<Service>;
 
 /// Convenience type alias for wallet client.
 #[cfg(feature = "walletrpc")]
-pub type WalletKitClient =
-    walletrpc::wallet_kit_client::WalletKitClient<InterceptedService<Channel, MacaroonInterceptor>>;
+pub type WalletKitClient = walletrpc::wallet_kit_client::WalletKitClient<Service>;
 
 /// Convenience type alias for peers service client.
 #[cfg(feature = "peersrpc")]
-pub type PeersClient =
-    peersrpc::peers_client::PeersClient<InterceptedService<Channel, MacaroonInterceptor>>;
+pub type PeersClient = peersrpc::peers_client::PeersClient<Service>;
 
 /// Convenience type alias for versioner service client.
 #[cfg(feature = "versionrpc")]
-pub type VersionerClient =
-    verrpc::versioner_client::VersionerClient<InterceptedService<Channel, MacaroonInterceptor>>;
+pub type VersionerClient = verrpc::versioner_client::VersionerClient<Service>;
 
 // Convenience type alias for signer client.
 #[cfg(feature = "signrpc")]
-pub type SignerClient =
-    signrpc::signer_client::SignerClient<InterceptedService<Channel, MacaroonInterceptor>>;
+pub type SignerClient = signrpc::signer_client::SignerClient<Service>;
 
 /// Convenience type alias for router client.
 #[cfg(feature = "routerrpc")]
-pub type RouterClient = routerrpc::router_client::RouterClient<
-    tonic::codegen::InterceptedService<Channel, MacaroonInterceptor>,
->;
+pub type RouterClient = routerrpc::router_client::RouterClient<Service>;
 
 /// Convenience type alias for invoices client.
 #[cfg(feature = "invoicesrpc")]
-pub type InvoicesClient = invoicesrpc::invoices_client::InvoicesClient<
-    tonic::codegen::InterceptedService<Channel, MacaroonInterceptor>,
->;
+pub type InvoicesClient = invoicesrpc::invoices_client::InvoicesClient<Service>;
 
 /// The client returned by `connect` function
 ///
@@ -278,73 +274,52 @@ async fn load_macaroon(
 /// If you have a motivating use case for use of direct data feel free to open an issue and
 /// explain.
 #[cfg_attr(feature = "tracing", tracing::instrument(name = "Connecting to LND"))]
-pub async fn connect<A, CP, MP>(
-    address: A,
+pub async fn connect<CP, MP>(
+    address: String,
     cert_file: CP,
     macaroon_file: MP,
 ) -> Result<Client, ConnectError>
 where
-    A: TryInto<tonic::transport::Endpoint> + std::fmt::Debug + ToString,
-    <A as TryInto<tonic::transport::Endpoint>>::Error: std::error::Error + Send + Sync + 'static,
     CP: AsRef<Path> + Into<PathBuf> + std::fmt::Debug,
     MP: AsRef<Path> + Into<PathBuf> + std::fmt::Debug,
 {
-    let address_str = address.to_string();
-
-    let conn = try_map_err!(address.try_into(), |error| {
-        InternalConnectError::InvalidAddress {
-            address: address_str.clone(),
-            error: Box::new(error),
-        }
-    })
-    .tls_config(tls::config(cert_file).await?)
-    .map_err(InternalConnectError::TlsConfig)?
-    .connect()
-    .await
-    .map_err(|error| InternalConnectError::Connect {
-        address: address_str,
-        error,
-    })?;
-
+    let connector = hyper_rustls::HttpsConnectorBuilder::new()
+        .with_tls_config(tls::config(cert_file).await?)
+        .https_or_http()
+        .enable_http2()
+        .build();
     let macaroon = load_macaroon(macaroon_file).await?;
 
-    let interceptor = MacaroonInterceptor { macaroon };
+    let svc = InterceptedService::new(
+        hyper::Client::builder().build(connector),
+        MacaroonInterceptor { macaroon },
+    );
+    let uri =
+        Uri::from_str(address.as_str()).map_err(|error| InternalConnectError::InvalidAddress {
+            address,
+            error: Box::new(error),
+        })?;
 
     let client = Client {
         #[cfg(feature = "lightningrpc")]
-        lightning: lnrpc::lightning_client::LightningClient::with_interceptor(
-            conn.clone(),
-            interceptor.clone(),
-        ),
+        lightning: lnrpc::lightning_client::LightningClient::with_origin(svc.clone(), uri.clone()),
         #[cfg(feature = "walletrpc")]
-        wallet: walletrpc::wallet_kit_client::WalletKitClient::with_interceptor(
-            conn.clone(),
-            interceptor.clone(),
+        wallet: walletrpc::wallet_kit_client::WalletKitClient::with_origin(
+            svc.clone(),
+            uri.clone(),
         ),
         #[cfg(feature = "peersrpc")]
-        peers: peersrpc::peers_client::PeersClient::with_interceptor(
-            conn.clone(),
-            interceptor.clone(),
-        ),
+        peers: peersrpc::peers_client::PeersClient::with_origin(svc.clone(), uri.clone()),
         #[cfg(feature = "signrpc")]
-        signer: signrpc::signer_client::SignerClient::with_interceptor(
-            conn.clone(),
-            interceptor.clone(),
-        ),
+        signer: signrpc::signer_client::SignerClient::with_origin(svc.clone(), uri.clone()),
         #[cfg(feature = "versionrpc")]
-        version: verrpc::versioner_client::VersionerClient::with_interceptor(
-            conn.clone(),
-            interceptor.clone(),
-        ),
+        version: verrpc::versioner_client::VersionerClient::with_origin(svc.clone(), uri.clone()),
         #[cfg(feature = "routerrpc")]
-        router: routerrpc::router_client::RouterClient::with_interceptor(
-            conn.clone(),
-            interceptor.clone(),
-        ),
+        router: routerrpc::router_client::RouterClient::with_origin(svc.clone(), uri.clone()),
         #[cfg(feature = "invoicesrpc")]
-        invoices: invoicesrpc::invoices_client::InvoicesClient::with_interceptor(
-            conn.clone(),
-            interceptor.clone(),
+        invoices: invoicesrpc::invoices_client::InvoicesClient::with_origin(
+            svc.clone(),
+            uri.clone(),
         ),
     };
     Ok(client)
@@ -361,17 +336,14 @@ mod tls {
         sync::Arc,
         time::SystemTime,
     };
-    use tonic::transport::ClientTlsConfig;
 
     pub(crate) async fn config(
         path: impl AsRef<Path> + Into<PathBuf>,
-    ) -> Result<ClientTlsConfig, ConnectError> {
-        let tls_config = ClientConfig::builder()
+    ) -> Result<ClientConfig, ConnectError> {
+        Ok(ClientConfig::builder()
             .with_safe_defaults()
             .with_custom_certificate_verifier(Arc::new(CertVerifier::load(path).await?))
-            .with_no_client_auth();
-
-        Ok(ClientTlsConfig::new().rustls_client_config(tls_config))
+            .with_no_client_auth())
     }
 
     pub(crate) struct CertVerifier {
@@ -397,11 +369,6 @@ mod tls {
                 }
             });
 
-            #[cfg(feature = "tracing")]
-            {
-                tracing::debug!("Certificates loaded (Count: {})", certs.len());
-            }
-
             Ok(CertVerifier { certs: certs })
         }
     }
@@ -409,34 +376,27 @@ mod tls {
     impl ServerCertVerifier for CertVerifier {
         fn verify_server_cert(
             &self,
-            end_entity: &Certificate,
+            _end_entity: &Certificate,
             intermediates: &[Certificate],
-            server_name: &ServerName,
-            scts: &mut dyn Iterator<Item = &[u8]>,
+            _server_name: &ServerName,
+            _scts: &mut dyn Iterator<Item = &[u8]>,
             _ocsp_response: &[u8],
-            now: SystemTime,
+            _now: SystemTime,
         ) -> Result<ServerCertVerified, TLSError> {
-            if self.certs.len() != intermediates.len() {
+            if self.certs.len() != intermediates.len() + 1 {
                 return Err(TLSError::General(format!(
                     "Mismatched number of certificates (Expected: {}, Presented: {})",
                     self.certs.len(),
-                    intermediates.len()
+                    intermediates.len() + 1
                 )));
             }
-
             for (c, p) in self.certs.iter().zip(intermediates.iter()) {
                 if *p.0 != **c {
                     return Err(TLSError::General(format!(
                         "Server certificates do not match ours"
                     )));
-                } else {
-                    #[cfg(feature = "tracing")]
-                    {
-                        tracing::trace!("Confirmed certificate match");
-                    }
                 }
             }
-
             Ok(ServerCertVerified::assertion())
         }
     }
