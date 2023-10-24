@@ -371,21 +371,24 @@ mod tls {
     impl ServerCertVerifier for CertVerifier {
         fn verify_server_cert(
             &self,
-            _end_entity: &Certificate,
+            end_entity: &Certificate,
             intermediates: &[Certificate],
             _server_name: &ServerName,
             _scts: &mut dyn Iterator<Item = &[u8]>,
             _ocsp_response: &[u8],
             _now: SystemTime,
         ) -> Result<ServerCertVerified, TLSError> {
-            if self.certs.len() != intermediates.len() + 1 {
+            let mut certs = intermediates.iter().collect::<Vec<&Certificate>>();
+            certs.push(end_entity);
+
+            if self.certs.len() != certs.len() {
                 return Err(TLSError::General(format!(
                     "Mismatched number of certificates (Expected: {}, Presented: {})",
                     self.certs.len(),
-                    intermediates.len() + 1
+                    certs.len()
                 )));
             }
-            for (c, p) in self.certs.iter().zip(intermediates.iter()) {
+            for (c, p) in self.certs.iter().zip(certs.iter()) {
                 if *p.0 != **c {
                     return Err(TLSError::General(format!(
                         "Server certificates do not match ours"
