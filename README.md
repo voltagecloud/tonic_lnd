@@ -47,14 +47,14 @@ async fn main() {
     let address = address.into_string().expect("address is not UTF-8");
 
     // Connecting to LND requires only address, cert file, and macaroon file
-    let mut client = tonic_lnd::connect(address, cert_file, macaroon_file)
+    let mut client = fedimint_tonic_lnd::connect(address, cert_file, macaroon_file)
         .await
         .expect("failed to connect");
 
     let info = client
         .lightning()
         // All calls require at least empty parameter
-        .get_info(tonic_lnd::lnrpc::GetInfoRequest {})
+        .get_info(fedimint_tonic_lnd::lnrpc::GetInfoRequest {})
         .await
         .expect("failed to get info");
 
@@ -66,12 +66,7 @@ async fn main() {
 
 ## MSRV
 
-1.48.0
-
-However some dependencies may need to be downgraded using `cargo update -p <package> --precise <version>`.
-`Cargo-msrv.lock` is included for reference - it is the lock file used to test the crate and contains known working versions of dependencies.
-
-The MSRV won't be bumped sooner than Debian Bookworm release.
+1.65.0
 
 ## License
 

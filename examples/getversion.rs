@@ -20,13 +20,13 @@ async fn main() {
     let address = address.into_string().expect("address is not UTF-8");
 
     // Connecting to LND requires only address, cert file, and macaroon file
-    let mut client = tonic_lnd::connect(address, cert_file, macaroon_file)
+    let mut client = fedimint_tonic_lnd::connect(address, cert_file, macaroon_file)
         .await
         .expect("failed to connect");
 
     let version = client
         .versioner()
-        .get_version(tonic_lnd::verrpc::VersionRequest {})
+        .get_version(fedimint_tonic_lnd::verrpc::VersionRequest {})
         .await
         .expect("failed to get version");
     // We only print it here, note that in real-life code you may want to call `.into_inner()` on

@@ -3,7 +3,7 @@
 // The program accepts four arguments: address, cert file, macaroon file, payment hash
 // The address must start with `https://`!
 //
-// Example run: `cargo run --features=routerrpc --example cancel_invoice <address> <tls.cert> <file.macaroon> <payment_hash>`
+// Example run: `cargo run --features=invoicesrpc --example cancel_invoice <address> <tls.cert> <file.macaroon> <payment_hash>`
 
 #[tokio::main]
 #[cfg(feature = "invoicesrpc")]
@@ -34,13 +34,13 @@ async fn main() {
     .expect("payment_hash is not a valid hex");
 
     // Connecting to LND requires only address, cert file, and macaroon file
-    let mut client = tonic_lnd::connect(address, cert_file, macaroon_file)
+    let mut client = fedimint_tonic_lnd::connect(address, cert_file, macaroon_file)
         .await
         .expect("failed to connect");
 
     client
         .invoices()
-        .cancel_invoice(tonic_lnd::invoicesrpc::CancelInvoiceMsg { payment_hash })
+        .cancel_invoice(fedimint_tonic_lnd::invoicesrpc::CancelInvoiceMsg { payment_hash })
         .await
         .expect("Failed to cancel invoice");
 
