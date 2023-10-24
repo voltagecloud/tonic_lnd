@@ -254,7 +254,7 @@ async fn load_macaroon(
                 file: path.into(),
                 error,
             })?;
-    Ok(hex::encode(&macaroon))
+    Ok(hex::encode(macaroon))
 }
 
 /// Connects to LND using given address and credentials
@@ -364,7 +364,7 @@ mod tls {
                 }
             });
 
-            Ok(CertVerifier { certs: certs })
+            Ok(CertVerifier { certs })
         }
     }
 
@@ -390,9 +390,9 @@ mod tls {
             }
             for (c, p) in self.certs.iter().zip(certs.iter()) {
                 if *p.0 != **c {
-                    return Err(TLSError::General(format!(
-                        "Server certificates do not match ours"
-                    )));
+                    return Err(TLSError::General(
+                        "Server certificates do not match ours".to_string()
+                    ));
                 }
             }
             Ok(ServerCertVerified::assertion())
