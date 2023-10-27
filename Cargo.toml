@@ -40,3 +40,33 @@ tonic-build = "0.10.0"
 
 [dev-dependencies]
 tokio = { version = "1.7.1", features = ["rt-multi-thread"] }
+
+[[example]]
+name = "get_info"
+path = "examples/get_info.rs"
+required-features = ["lightningrpc"]
+
+[[example]]
+name = "get_version"
+path = "examples/get_version.rs"
+required-features = ["versionrpc"]
+
+[[example]]
+name = "track_payment"
+path = "examples/track_payment.rs"
+required-features = ["routerrpc"]
+
+[[example]]
+name = "cancel_invoice"
+path = "examples/cancel_invoice.rs"
+required-features = ["invoicesrpc"]
+
+[[example]]
+name = "subscribe_invoices"
+path = "examples/subscribe_invoices.rs"
+required-features = ["invoicesrpc"]
+
+[[example]]
+name = "intercept_htlcs"
+path = "examples/intercept_htlcs.rs"
+required-features = ["routerrpc"]
