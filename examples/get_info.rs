@@ -1,12 +1,13 @@
-// This example fetches and prints the version info of the running lnd daemon
+// This example only fetches and prints the node info to the standard output similarly to
+// `lncli getinfo`.
 //
 // The program accepts three arguments: address, cert file, macaroon file
 // The address must start with `https://`!
 //
-// Example run: `cargo run --features=versionrpc --example getversion <address> <tls.cert> <file.macaroon>`
+// Example run: `cargo run --features=lightningrpc --example get_info <address> <tls.cert> <file.macaroon>`
 
 #[tokio::main]
-#[cfg(feature = "versionrpc")]
+#[cfg(feature = "lightningrpc")]
 async fn main() {
     let mut args = std::env::args_os();
     args.next().expect("not even zeroth arg given");
@@ -24,12 +25,14 @@ async fn main() {
         .await
         .expect("failed to connect");
 
-    let version = client
-        .versioner()
-        .get_version(fedimint_tonic_lnd::verrpc::VersionRequest {})
+    let info = client
+        .lightning()
+        // All calls require at least empty parameter
+        .get_info(fedimint_tonic_lnd::lnrpc::GetInfoRequest {})
         .await
-        .expect("failed to get version");
+        .expect("failed to get info");
+
     // We only print it here, note that in real-life code you may want to call `.into_inner()` on
     // the response to get the message.
-    println!("{:#?}", version);
+    println!("{:#?}", info);
 }
