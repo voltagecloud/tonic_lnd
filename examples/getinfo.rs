@@ -4,6 +4,8 @@
 // This program accepts three arguments: address, cert file, macaroon file
 // The address must start with `https://`!
 
+use std::time::Duration;
+
 #[tokio::main]
 async fn main() {
     let mut args = std::env::args_os();
@@ -32,7 +34,7 @@ async fn main() {
         .expect("macaroon_file is not UTF-8");
 
     // Connecting to LND requires only host, port, cert file, macaroon file
-    let mut client = tonic_lnd::connect(host, port, cert_file, macaroon_file)
+    let mut client = tonic_lnd::connect(host, port, cert_file, macaroon_file, Some(Duration::new(20_u64, 0_u32)))
         .await
         .expect("failed to connect");
 

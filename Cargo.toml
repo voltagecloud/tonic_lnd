@@ -2,7 +2,7 @@
 name = "tonic_lnd"
 version = "0.5.0"
 authors = ["Martin Habovstiak <martin.habovstiak@gmail.com>"]
-edition = "2018"
+edition = "2021"
 description = "An async library implementing LND RPC via tonic and prost"
 homepage = "https://github.com/Kixunil/tonic_lnd"
 repository = "https://github.com/Kixunil/tonic_lnd"
@@ -15,11 +15,12 @@ license = "MITNFA"
 doctest = false
 
 [dependencies]
-tonic = "0.7"
+tonic = "0.10"
 tonic-openssl = { version = "0.2" }
 hyper = "0.14"
 hyper-openssl = "0.9"
-prost = "0.10"
+prost = "0.12"
+prost-types = "0.12"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 openssl = "0.10"
@@ -28,4 +29,4 @@ pretty_env_logger = "*"
 hex = "0.4.3"
 
 [build-dependencies]
-tonic-build = "0.7"
+tonic-build = "0.10"

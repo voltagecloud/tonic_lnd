@@ -2,6 +2,8 @@
 // The program accepts three arguments: address, cert file, macaroon file
 // The address must start with `https://`!
 
+use std::time::Duration;
+
 #[tokio::main]
 async fn main() {
     let mut args = std::env::args_os();
@@ -30,7 +32,7 @@ async fn main() {
         .expect("macaroon_file is not UTF-8");
 
     // Connecting to LND requires only address, cert file, and macaroon file
-    let mut client = tonic_lnd::connect(host, port, cert_file, macaroon_file)
+    let mut client = tonic_lnd::connect(host, port, cert_file, macaroon_file, Some(Duration::new(20_u64, 0_u32)))
         .await
         .expect("failed to connect");
 
@@ -49,9 +51,9 @@ async fn main() {
         .await
         .expect("Failed to receive invoices")
     {
-        if let Some(state) = tonic_lnd::lnrpc::invoice::InvoiceState::from_i32(invoice.state) {
+        if let Some(state) = TryInto::<i32>::try_into(invoice.state).ok() {
             // If this invoice was Settled we can do something with it
-            if state == tonic_lnd::lnrpc::invoice::InvoiceState::Settled {
+            if state == tonic_lnd::lnrpc::invoice::InvoiceState::Settled.into() {
                 println!("{:?}", invoice);
             }
         }
