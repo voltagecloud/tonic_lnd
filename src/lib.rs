@@ -7,6 +7,7 @@ use http_body::combinators::UnsyncBoxBody;
 use hyper::client::HttpConnector;
 use hyper::Uri;
 use hyper_rustls::HttpsConnector;
+use rustls::client::ClientConfig;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use tonic::codegen::{Bytes, InterceptedService};
@@ -214,12 +215,35 @@ where
     CP: AsRef<Path> + Into<PathBuf> + std::fmt::Debug,
     MP: AsRef<Path> + Into<PathBuf> + std::fmt::Debug,
 {
+    let macaroon = load_macaroon(macaroon_file).await?;
+    let tls_config = tls::config(tls::Cert::Path(cert_file)).await?;
+    do_connect(address, tls_config, macaroon).await
+}
+
+/// connect_from_memory connects to LND using in-memory cert and macaroon instead of from file paths.
+/// `cert`` is a PEM encoded string
+/// `macaroon`` is a hex-encoded string
+/// These credentials can get out of date! Make sure you are pulling fresh credentials when using this function.
+#[cfg_attr(feature = "tracing", tracing::instrument(name = "Connecting to LND"))]
+pub async fn connect_from_memory(
+    address: String,
+    cert_pem: String,
+    macaroon: String,
+) -> Result<Client, ConnectError> {
+    let tls_config = tls::config(tls::Cert::<String>::Bytes(cert_pem.into_bytes())).await?;
+    Ok(do_connect(address, tls_config, macaroon).await?)
+}
+
+async fn do_connect(
+    address: String,
+    tls_config: ClientConfig,
+    macaroon: String,
+) -> Result<Client, ConnectError> {
     let connector = hyper_rustls::HttpsConnectorBuilder::new()
-        .with_tls_config(tls::config(cert_file).await?)
+        .with_tls_config(tls_config)
         .https_or_http()
         .enable_http2()
         .build();
-    let macaroon = load_macaroon(macaroon_file).await?;
 
     let svc = InterceptedService::new(
         hyper::Client::builder().build(connector),
@@ -268,12 +292,12 @@ mod tls {
         time::SystemTime,
     };
 
-    pub(crate) async fn config(
-        path: impl AsRef<Path> + Into<PathBuf>,
+    pub(crate) async fn config<P: AsRef<Path> + Into<PathBuf>>(
+        cert: Cert<P>,
     ) -> Result<ClientConfig, ConnectError> {
         Ok(ClientConfig::builder()
             .with_safe_defaults()
-            .with_custom_certificate_verifier(Arc::new(CertVerifier::load(path).await?))
+            .with_custom_certificate_verifier(Arc::new(CertVerifier::load(cert).await?))
             .with_no_client_auth())
     }
 
@@ -282,22 +306,24 @@ mod tls {
     }
 
     impl CertVerifier {
-        pub(crate) async fn load(
-            path: impl AsRef<Path> + Into<PathBuf>,
+        pub(crate) async fn load<P: AsRef<Path> + Into<PathBuf>>(
+            cert: Cert<P>,
         ) -> Result<Self, InternalConnectError> {
-            let contents = try_map_err!(tokio::fs::read(&path).await, |error| {
-                InternalConnectError::ReadFile {
-                    file: path.into(),
-                    error,
+            let contents = match cert {
+                Cert::Path(path) => {
+                    try_map_err!(tokio::fs::read(&path).await, |error| {
+                        InternalConnectError::ReadFile {
+                            file: path.into(),
+                            error,
+                        }
+                    })
                 }
-            });
-            let mut reader = &*contents;
+                Cert::Bytes(bytes) => bytes,
+            };
 
+            let mut reader = &*contents;
             let certs = try_map_err!(rustls_pemfile::certs(&mut reader), |error| {
-                InternalConnectError::ParseCert {
-                    file: path.into(),
-                    error,
-                }
+                InternalConnectError::ParseCert { file: None, error }
             });
 
             Ok(CertVerifier { certs })
@@ -327,11 +353,16 @@ mod tls {
             for (c, p) in self.certs.iter().zip(certs.iter()) {
                 if *p.0 != **c {
                     return Err(TLSError::General(
-                        "Server certificates do not match ours".to_string()
+                        "Server certificates do not match ours".to_string(),
                     ));
                 }
             }
             Ok(ServerCertVerified::assertion())
         }
+    }
+
+    pub(crate) enum Cert<P: AsRef<Path> + Into<PathBuf>> {
+        Path(P),
+        Bytes(Vec<u8>),
     }
 }
