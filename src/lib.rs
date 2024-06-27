@@ -74,10 +74,22 @@ impl Client {
         &mut self.lightning
     }
 
+    /// Returns a read-only lightning client.
+    #[cfg(feature = "lightningrpc")]
+    pub fn lightning_read_only(self) -> LightningClient {
+        self.lightning
+    }
+
     /// Returns the wallet client.
     #[cfg(feature = "walletrpc")]
     pub fn wallet(&mut self) -> &mut WalletKitClient {
         &mut self.wallet
+    }
+
+    /// Returns a read-only wallet client.
+    #[cfg(feature = "walletrpc")]
+    pub fn wallet_read_only(self) -> WalletKitClient {
+        self.wallet
     }
 
     /// Returns the signer client.
@@ -86,10 +98,22 @@ impl Client {
         &mut self.signer
     }
 
+    /// Returns a read-only signer client.
+    #[cfg(feature = "signrpc")]
+    pub fn signer_read_only(self) -> SignerClient {
+        self.signer
+    }
+
     /// Returns the versioner client.
     #[cfg(feature = "versionrpc")]
     pub fn versioner(&mut self) -> &mut VersionerClient {
         &mut self.version
+    }
+
+    /// Returns a read-only versioner client.
+    #[cfg(feature = "versionrpc")]
+    pub fn versioner_read_only(self) -> VersionerClient {
+        self.version
     }
 
     /// Returns the peers client.
@@ -98,16 +122,34 @@ impl Client {
         &mut self.peers
     }
 
+    /// Returns a read-only peers client.
+    #[cfg(feature = "peersrpc")]
+    pub fn peers_read_only(self) -> PeersClient {
+        self.peers
+    }
+
     /// Returns the router client.
     #[cfg(feature = "routerrpc")]
     pub fn router(&mut self) -> &mut RouterClient {
         &mut self.router
     }
 
+    /// Returns a read-only router client.
+    #[cfg(feature = "routerrpc")]
+    pub fn router_read_only(self) -> RouterClient {
+        self.router
+    }
+
     /// Returns the invoices client.
     #[cfg(feature = "invoicesrpc")]
     pub fn invoices(&mut self) -> &mut InvoicesClient {
         &mut self.invoices
+    }
+
+    /// Returns a read-only invoices client.
+    #[cfg(feature = "invoicesrpc")]
+    pub fn invoices_read_only(self) -> InvoicesClient {
+        self.invoices
     }
 }
 
