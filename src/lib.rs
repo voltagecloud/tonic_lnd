@@ -322,83 +322,47 @@ async fn do_connect(
 
 mod tls {
     use crate::error::{ConnectError, InternalConnectError};
-    use rustls::{
-        client::{ClientConfig, ServerCertVerified, ServerCertVerifier},
-        Certificate, Error as TLSError, ServerName,
-    };
-    use std::{
-        path::{Path, PathBuf},
-        sync::Arc,
-        time::SystemTime,
-    };
+    use rustls::{client::ClientConfig, Certificate, RootCertStore};
+    use std::path::{Path, PathBuf};
 
     pub(crate) async fn config<P: AsRef<Path> + Into<PathBuf>>(
         cert: Cert<P>,
     ) -> Result<ClientConfig, ConnectError> {
+        let contents = match cert {
+            Cert::Path(path) => {
+                try_map_err!(tokio::fs::read(&path).await, |error| {
+                    InternalConnectError::ReadFile {
+                        file: path.into(),
+                        error,
+                    }
+                })
+            }
+            Cert::Bytes(bytes) => bytes,
+        };
+
+        let mut reader = &*contents;
+        let cert_data = try_map_err!(rustls_pemfile::certs(&mut reader), |error| {
+            InternalConnectError::ParseCert { file: None, error }
+        });
+
+        let mut root_store = RootCertStore::empty();
+        for cert_bytes in cert_data {
+            if let Err(_err) = root_store.add(&Certificate(cert_bytes)) {
+                return Err(InternalConnectError::ParseCert {
+                    file: None,
+                    error: std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "Failed to add certificate to root store",
+                    ),
+                }
+                .into());
+            }
+        }
+
         Ok(ClientConfig::builder()
             .with_safe_defaults()
-            .with_custom_certificate_verifier(Arc::new(CertVerifier::load(cert).await?))
+            .with_root_certificates(root_store)
             .with_no_client_auth())
-    }
-
-    pub(crate) struct CertVerifier {
-        certs: Vec<Vec<u8>>,
-    }
-
-    impl CertVerifier {
-        pub(crate) async fn load<P: AsRef<Path> + Into<PathBuf>>(
-            cert: Cert<P>,
-        ) -> Result<Self, InternalConnectError> {
-            let contents = match cert {
-                Cert::Path(path) => {
-                    try_map_err!(tokio::fs::read(&path).await, |error| {
-                        InternalConnectError::ReadFile {
-                            file: path.into(),
-                            error,
-                        }
-                    })
-                }
-                Cert::Bytes(bytes) => bytes,
-            };
-
-            let mut reader = &*contents;
-            let certs = try_map_err!(rustls_pemfile::certs(&mut reader), |error| {
-                InternalConnectError::ParseCert { file: None, error }
-            });
-
-            Ok(CertVerifier { certs })
-        }
-    }
-
-    impl ServerCertVerifier for CertVerifier {
-        fn verify_server_cert(
-            &self,
-            end_entity: &Certificate,
-            intermediates: &[Certificate],
-            _server_name: &ServerName,
-            _scts: &mut dyn Iterator<Item = &[u8]>,
-            _ocsp_response: &[u8],
-            _now: SystemTime,
-        ) -> Result<ServerCertVerified, TLSError> {
-            let mut certs = intermediates.iter().collect::<Vec<&Certificate>>();
-            certs.push(end_entity);
-
-            if self.certs.len() != certs.len() {
-                return Err(TLSError::General(format!(
-                    "Mismatched number of certificates (Expected: {}, Presented: {})",
-                    self.certs.len(),
-                    certs.len()
-                )));
-            }
-            for (c, p) in self.certs.iter().zip(certs.iter()) {
-                if *p.0 != **c {
-                    return Err(TLSError::General(
-                        "Server certificates do not match ours".to_string(),
-                    ));
-                }
-            }
-            Ok(ServerCertVerified::assertion())
-        }
     }
 
     pub(crate) enum Cert<P: AsRef<Path> + Into<PathBuf>> {
