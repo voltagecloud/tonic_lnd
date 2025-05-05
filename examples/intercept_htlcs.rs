@@ -8,6 +8,8 @@
 #[tokio::main]
 #[cfg(feature = "routerrpc")]
 async fn main() {
+    use std::collections::HashMap;
+
     let mut args = std::env::args_os();
     args.next().expect("not even zeroth arg given");
     let address: String = args
@@ -60,6 +62,9 @@ async fn main() {
             preimage: vec![],
             failure_message: vec![],
             failure_code: 0,
+            in_amount_msat: htlc.incoming_amount_msat,
+            out_amount_msat: htlc.outgoing_amount_msat,
+            out_wire_custom_records: HashMap::new(),
         };
         tx.send(response).await.unwrap();
     }
