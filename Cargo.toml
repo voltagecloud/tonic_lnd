@@ -1,28 +1,72 @@
 [package]
-name = "tonic_lnd"
-version = "0.5.1"
-authors = ["Martin Habovstiak <martin.habovstiak@gmail.com>"]
-edition = "2018"
-description = "An async library implementing LND RPC via tonic and prost"
-homepage = "https://github.com/Kixunil/tonic_lnd"
-repository = "https://github.com/Kixunil/tonic_lnd"
+name = "fedimint-tonic-lnd"
+version = "0.1.3"
+edition = "2021"
+rust-version = "1.65.0"
+description = "An async library implementing LND RPC via tonic and prost. Forked from https://github.com/Kixunil/tonic_lnd"
+homepage = "https://github.com/fedimint/tonic_lnd"
+repository = "https://github.com/fedimint/tonic_lnd"
 readme = "README.md"
 keywords = ["LND", "rpc", "grpc", "tonic", "async"]
 categories = ["api-bindings", "asynchronous", "cryptography::cryptocurrencies", "network-programming"]
 license = "MITNFA"
 
+[features]
+lightningrpc = []
+signrpc = []
+walletrpc = ["signrpc"]
+peersrpc = []
+versionrpc = []
+routerrpc = ["lightningrpc"]
+invoicesrpc = ["lightningrpc"]
+all = ["lightningrpc", "walletrpc", "peersrpc", "versionrpc", "routerrpc", "invoicesrpc"]
+default = ["all"]
+
 [dependencies]
-tonic = { version = "0.6.2", features = ["transport", "tls"] }
-prost = "0.9.0"
-rustls = { version = "0.19.0", features = ["dangerous_configuration"] }
-webpki = "0.21.3"
-rustls-pemfile = "1.0.0"
 hex = "0.4.3"
-tokio = { version = "1.7.1", features = ["fs"] }
-tracing = { version = "0.1", features = ["log"], optional = true }
+http-body = "0.4.5"
+hyper = { version = "0.14.27", features = ["client"], default-features = false }
+prost = "0.12.0"
+rustls = { version = "0.21.0", features = ["dangerous_configuration"], default-features = false }
+rustls-pemfile = "1.0.0"
+hyper-rustls = { version = "0.24.1", features = ["acceptor", "http2", "tls12"], default-features = false }
+tonic = { version = "0.10.0", features = ["transport", "tls"] }
+tokio = { version = "1.32.0", features = ["fs"] }
+tokio-stream = { version = "0.1", features = ["net"] }
+tower = "0.4.13"
 
 [build-dependencies]
-tonic-build = "0.5.2"
+tonic-build = "0.10.0"
 
 [dev-dependencies]
 tokio = { version = "1.7.1", features = ["rt-multi-thread"] }
+
+[[example]]
+name = "get_info"
+path = "examples/get_info.rs"
+required-features = ["lightningrpc"]
+
+[[example]]
+name = "get_version"
+path = "examples/get_version.rs"
+required-features = ["versionrpc"]
+
+[[example]]
+name = "track_payment"
+path = "examples/track_payment.rs"
+required-features = ["routerrpc"]
+
+[[example]]
+name = "cancel_invoice"
+path = "examples/cancel_invoice.rs"
+required-features = ["invoicesrpc"]
+
+[[example]]
+name = "subscribe_invoices"
+path = "examples/subscribe_invoices.rs"
+required-features = ["invoicesrpc"]
+
+[[example]]
+name = "intercept_htlcs"
+path = "examples/intercept_htlcs.rs"
+required-features = ["routerrpc"]
