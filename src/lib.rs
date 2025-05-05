@@ -247,7 +247,6 @@ async fn load_macaroon(
 ///
 /// If you have a motivating use case for use of direct data feel free to open an issue and
 /// explain.
-#[cfg_attr(feature = "tracing", tracing::instrument(name = "Connecting to LND"))]
 pub async fn connect<CP, MP>(
     address: String,
     cert_file: CP,
@@ -266,7 +265,6 @@ where
 /// `cert`` is a PEM encoded string
 /// `macaroon`` is a hex-encoded string
 /// These credentials can get out of date! Make sure you are pulling fresh credentials when using this function.
-#[cfg_attr(feature = "tracing", tracing::instrument(name = "Connecting to LND"))]
 pub async fn connect_from_memory(
     address: String,
     cert_pem: String,
