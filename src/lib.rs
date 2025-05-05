@@ -324,7 +324,7 @@ mod tls {
     use crate::error::{ConnectError, InternalConnectError};
     use rustls::{
         client::{ClientConfig, ServerCertVerified, ServerCertVerifier},
-        Certificate, Error as TLSError, ServerName,
+        Certificate, Error as TLSError, RootCertStore, ServerName,
     };
     use std::{
         path::{Path, PathBuf},
@@ -335,17 +335,20 @@ mod tls {
     pub(crate) async fn config<P: AsRef<Path> + Into<PathBuf>>(
         cert: Cert<P>,
     ) -> Result<ClientConfig, ConnectError> {
+        let hybrid_verifier = HybridCertVerifier::load(cert).await?;
+
         Ok(ClientConfig::builder()
             .with_safe_defaults()
-            .with_custom_certificate_verifier(Arc::new(CertVerifier::load(cert).await?))
+            .with_custom_certificate_verifier(Arc::new(hybrid_verifier))
             .with_no_client_auth())
     }
 
-    pub(crate) struct CertVerifier {
-        certs: Vec<Vec<u8>>,
+    pub(crate) struct HybridCertVerifier {
+        exact_certs: Vec<Vec<u8>>,
+        standard_verifier: Arc<dyn ServerCertVerifier>,
     }
 
-    impl CertVerifier {
+    impl HybridCertVerifier {
         pub(crate) async fn load<P: AsRef<Path> + Into<PathBuf>>(
             cert: Cert<P>,
         ) -> Result<Self, InternalConnectError> {
@@ -362,42 +365,71 @@ mod tls {
             };
 
             let mut reader = &*contents;
-            let certs = try_map_err!(rustls_pemfile::certs(&mut reader), |error| {
+            let cert_data = try_map_err!(rustls_pemfile::certs(&mut reader), |error| {
                 InternalConnectError::ParseCert { file: None, error }
             });
 
-            Ok(CertVerifier { certs })
+            let mut root_store = RootCertStore::empty();
+            for cert_bytes in &cert_data {
+                if let Err(_err) = root_store.add(&Certificate(cert_bytes.clone())) {
+                    return Err(InternalConnectError::ParseCert {
+                        file: None,
+                        error: std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "Failed to add certificate to root store",
+                        ),
+                    });
+                }
+            }
+
+            let standard_verifier = rustls::client::WebPkiVerifier::new(root_store, None);
+
+            Ok(HybridCertVerifier {
+                exact_certs: cert_data,
+                standard_verifier: Arc::new(standard_verifier),
+            })
+        }
+
+        fn try_exact_match(&self, end_entity: &Certificate, intermediates: &[Certificate]) -> bool {
+            let mut presented_certs = intermediates.to_vec();
+            presented_certs.push(end_entity.clone());
+
+            if self.exact_certs.len() != presented_certs.len() {
+                return false;
+            }
+
+            for (expected, presented) in self.exact_certs.iter().zip(presented_certs.iter()) {
+                if presented.0 != *expected {
+                    return false;
+                }
+            }
+
+            true
         }
     }
 
-    impl ServerCertVerifier for CertVerifier {
+    impl ServerCertVerifier for HybridCertVerifier {
         fn verify_server_cert(
             &self,
             end_entity: &Certificate,
             intermediates: &[Certificate],
-            _server_name: &ServerName,
-            _scts: &mut dyn Iterator<Item = &[u8]>,
-            _ocsp_response: &[u8],
-            _now: SystemTime,
+            server_name: &ServerName,
+            scts: &mut dyn Iterator<Item = &[u8]>,
+            ocsp_response: &[u8],
+            now: SystemTime,
         ) -> Result<ServerCertVerified, TLSError> {
-            let mut certs = intermediates.iter().collect::<Vec<&Certificate>>();
-            certs.push(end_entity);
+            if self.try_exact_match(end_entity, intermediates) {
+                return Ok(ServerCertVerified::assertion());
+            }
 
-            if self.certs.len() != certs.len() {
-                return Err(TLSError::General(format!(
-                    "Mismatched number of certificates (Expected: {}, Presented: {})",
-                    self.certs.len(),
-                    certs.len()
-                )));
-            }
-            for (c, p) in self.certs.iter().zip(certs.iter()) {
-                if *p.0 != **c {
-                    return Err(TLSError::General(
-                        "Server certificates do not match ours".to_string(),
-                    ));
-                }
-            }
-            Ok(ServerCertVerified::assertion())
+            self.standard_verifier.verify_server_cert(
+                end_entity,
+                intermediates,
+                server_name,
+                scts,
+                ocsp_response,
+                now,
+            )
         }
     }
 
