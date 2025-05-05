@@ -7,7 +7,7 @@ fn main() -> std::io::Result<()> {
             let mut lnd_rpc_dir = PathBuf::from(lnd_repo_path);
             lnd_rpc_dir.push("lnrpc");
             lnd_rpc_dir
-        },
+        }
         None => PathBuf::from("vendor"),
     };
 
@@ -20,6 +20,8 @@ fn main() -> std::io::Result<()> {
         "lightning.proto",
         "peersrpc/peers.proto",
         "verrpc/verrpc.proto",
+        "routerrpc/router.proto",
+        "invoicesrpc/invoices.proto",
     ];
 
     let proto_paths: Vec<_> = protos
@@ -33,7 +35,6 @@ fn main() -> std::io::Result<()> {
     tonic_build::configure()
         .build_client(true)
         .build_server(false)
-        .format(false)
         .compile(&proto_paths, &[dir])?;
     Ok(())
 }

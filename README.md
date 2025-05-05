@@ -1,7 +1,7 @@
 # Tonic LND client
 
-[![Crate](https://img.shields.io/crates/v/tonic_lnd.svg?logo=rust)]([https://crates.io/crates/lightning](https://crates.io/crates/tonic_lnd))
-[![Documentation](https://img.shields.io/static/v1?logo=read-the-docs&label=docs.rs&message=tonic_lnd&color=informational)](https://docs.rs/tonic_lnd/)
+[![Crate](https://img.shields.io/crates/v/fedimint-tonic-lnd.svg?logo=rust)](https://crates.io/crates/fedimint-tonic-lnd)
+[![Documentation](https://img.shields.io/static/v1?logo=read-the-docs&label=docs.rs&message=fedimint-tonic-lnd&color=informational)](https://docs.rs/fedimint-tonic-lnd/)
 
 Rust implementation of LND RPC client using async gRPC library `tonic`.
 
@@ -19,13 +19,19 @@ but accepts an environment variable `LND_REPO_DIR` which overrides the vendored 
 This can be used to test new features in non-released `lnd`.
 (Actually, the motivating project using this library was that case. :))
 
+## Features
+
+Since most of the LND RPCs supported by this crate can be used in isolation, and your project likely only needs a subset of these RPCs, we expose each RPC under [Cargo feature gates](https://doc.rust-lang.org/cargo/reference/features.html). See the Cargo manifest for the [latest supported features](https://github.com/Kixunil/tonic_lnd/blob/master/Cargo.toml)
+
+All features are included by default, but you can explicitly select the features you want for a [slimmer dependency and faster compilations](https://github.com/Kixunil/tonic_lnd/pull/29#issuecomment-1352385426).
+
 ## Usage
 
 There's no setup needed beyond adding the crate to your `Cargo.toml`.
 If you need to change the `*.proto` files from which the client is generated, set the environment variable `LND_REPO_DIR` to a directory with cloned [`lnd`](https://github.com/lightningnetwork/lnd.git) during build.
 
 Here's an example of retrieving information from LND (`[getinfo](https://api.lightning.community/#getinfo)` call).
-You can find the same example in crate root for your convenience.
+You can find this and more [examples in crate root](https://github.com/Kixunil/tonic_lnd/tree/master/examples) for your convenience.
 
 ```rust
 // This program accepts three arguments: address, cert file, macaroon file
@@ -41,14 +47,14 @@ async fn main() {
     let address = address.into_string().expect("address is not UTF-8");
 
     // Connecting to LND requires only address, cert file, and macaroon file
-    let mut client = tonic_lnd::connect(address, cert_file, macaroon_file)
+    let mut client = fedimint_tonic_lnd::connect(address, cert_file, macaroon_file)
         .await
         .expect("failed to connect");
 
     let info = client
         .lightning()
         // All calls require at least empty parameter
-        .get_info(tonic_lnd::lnrpc::GetInfoRequest {})
+        .get_info(fedimint_tonic_lnd::lnrpc::GetInfoRequest {})
         .await
         .expect("failed to get info");
 
@@ -60,12 +66,7 @@ async fn main() {
 
 ## MSRV
 
-1.48.0
-
-However some dependencies may need to be downgraded using `cargo update -p <package> --precise <version>`.
-`Cargo-msrv.lock` is included for reference - it is the lock file used to test the crate and contains known working versions of dependencies.
-
-The MSRV won't be bumped sooner than Debian Bookworm release.
+1.65.0
 
 ## License
 
