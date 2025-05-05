@@ -322,47 +322,115 @@ async fn do_connect(
 
 mod tls {
     use crate::error::{ConnectError, InternalConnectError};
-    use rustls::{client::ClientConfig, Certificate, RootCertStore};
-    use std::path::{Path, PathBuf};
+    use rustls::{
+        client::{ClientConfig, ServerCertVerified, ServerCertVerifier},
+        Certificate, Error as TLSError, RootCertStore, ServerName,
+    };
+    use std::{
+        path::{Path, PathBuf},
+        sync::Arc,
+        time::SystemTime,
+    };
 
     pub(crate) async fn config<P: AsRef<Path> + Into<PathBuf>>(
         cert: Cert<P>,
     ) -> Result<ClientConfig, ConnectError> {
-        let contents = match cert {
-            Cert::Path(path) => {
-                try_map_err!(tokio::fs::read(&path).await, |error| {
-                    InternalConnectError::ReadFile {
-                        file: path.into(),
-                        error,
-                    }
-                })
-            }
-            Cert::Bytes(bytes) => bytes,
-        };
-
-        let mut reader = &*contents;
-        let cert_data = try_map_err!(rustls_pemfile::certs(&mut reader), |error| {
-            InternalConnectError::ParseCert { file: None, error }
-        });
-
-        let mut root_store = RootCertStore::empty();
-        for cert_bytes in cert_data {
-            if let Err(_err) = root_store.add(&Certificate(cert_bytes)) {
-                return Err(InternalConnectError::ParseCert {
-                    file: None,
-                    error: std::io::Error::new(
-                        std::io::ErrorKind::InvalidData,
-                        "Failed to add certificate to root store",
-                    ),
-                }
-                .into());
-            }
-        }
+        let hybrid_verifier = HybridCertVerifier::load(cert).await?;
 
         Ok(ClientConfig::builder()
             .with_safe_defaults()
-            .with_root_certificates(root_store)
+            .with_custom_certificate_verifier(Arc::new(hybrid_verifier))
             .with_no_client_auth())
+    }
+
+    pub(crate) struct HybridCertVerifier {
+        exact_certs: Vec<Vec<u8>>,
+        standard_verifier: Arc<dyn ServerCertVerifier>,
+    }
+
+    impl HybridCertVerifier {
+        pub(crate) async fn load<P: AsRef<Path> + Into<PathBuf>>(
+            cert: Cert<P>,
+        ) -> Result<Self, InternalConnectError> {
+            let contents = match cert {
+                Cert::Path(path) => {
+                    try_map_err!(tokio::fs::read(&path).await, |error| {
+                        InternalConnectError::ReadFile {
+                            file: path.into(),
+                            error,
+                        }
+                    })
+                }
+                Cert::Bytes(bytes) => bytes,
+            };
+
+            let mut reader = &*contents;
+            let cert_data = try_map_err!(rustls_pemfile::certs(&mut reader), |error| {
+                InternalConnectError::ParseCert { file: None, error }
+            });
+
+            let mut root_store = RootCertStore::empty();
+            for cert_bytes in &cert_data {
+                if let Err(_err) = root_store.add(&Certificate(cert_bytes.clone())) {
+                    return Err(InternalConnectError::ParseCert {
+                        file: None,
+                        error: std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "Failed to add certificate to root store",
+                        ),
+                    });
+                }
+            }
+
+            let standard_verifier = rustls::client::WebPkiVerifier::new(root_store, None);
+
+            Ok(HybridCertVerifier {
+                exact_certs: cert_data,
+                standard_verifier: Arc::new(standard_verifier),
+            })
+        }
+
+        fn try_exact_match(&self, end_entity: &Certificate, intermediates: &[Certificate]) -> bool {
+            let mut presented_certs = intermediates.to_vec();
+            presented_certs.push(end_entity.clone());
+
+            if self.exact_certs.len() != presented_certs.len() {
+                return false;
+            }
+
+            for (expected, presented) in self.exact_certs.iter().zip(presented_certs.iter()) {
+                if presented.0 != *expected {
+                    return false;
+                }
+            }
+
+            true
+        }
+    }
+
+    impl ServerCertVerifier for HybridCertVerifier {
+        fn verify_server_cert(
+            &self,
+            end_entity: &Certificate,
+            intermediates: &[Certificate],
+            server_name: &ServerName,
+            scts: &mut dyn Iterator<Item = &[u8]>,
+            ocsp_response: &[u8],
+            now: SystemTime,
+        ) -> Result<ServerCertVerified, TLSError> {
+            if self.try_exact_match(end_entity, intermediates) {
+                return Ok(ServerCertVerified::assertion());
+            }
+
+            self.standard_verifier.verify_server_cert(
+                end_entity,
+                intermediates,
+                server_name,
+                scts,
+                ocsp_response,
+                now,
+            )
+        }
     }
 
     pub(crate) enum Cert<P: AsRef<Path> + Into<PathBuf>> {
