@@ -11,6 +11,9 @@ keywords = ["LND", "rpc", "grpc", "tonic", "async"]
 categories = ["api-bindings", "asynchronous", "cryptography::cryptocurrencies", "network-programming"]
 license = "MITNFA"
 
+[package.metadata.cargo-machete]
+ignored = ["prost", "tonic-build"]
+
 [features]
 lightningrpc = []
 signrpc = []
@@ -33,7 +36,6 @@ hyper-rustls = { version = "0.24.1", features = ["acceptor", "http2", "tls12"], 
 tonic = { version = "0.10.0", features = ["transport", "tls"] }
 tokio = { version = "1.32.0", features = ["fs"] }
 tokio-stream = { version = "0.1", features = ["net"] }
-tower = "0.4.13"
 
 [build-dependencies]
 tonic-build = "0.10.0"

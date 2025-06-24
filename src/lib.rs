@@ -1,3 +1,5 @@
+#![allow(clippy::large_enum_variant)]
+#![allow(clippy::doc_lazy_continuation)]
 /// This is part of public interface so it's re-exported.
 pub extern crate tonic;
 
@@ -271,7 +273,7 @@ pub async fn connect_from_memory(
     macaroon: String,
 ) -> Result<Client, ConnectError> {
     let tls_config = tls::config(tls::Cert::<String>::Bytes(cert_pem.into_bytes())).await?;
-    Ok(do_connect(address, tls_config, macaroon).await?)
+    do_connect(address, tls_config, macaroon).await
 }
 
 async fn do_connect(
