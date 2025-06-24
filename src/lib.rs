@@ -276,6 +276,17 @@ pub async fn connect_from_memory(
     do_connect(address, tls_config, macaroon).await
 }
 
+#[cfg(feature = "rustls-platform-verifier")]
+pub async fn connect_from_memory_with_system_certs(
+    address: impl ToString,
+    macaroon: impl ToString,
+) -> Result<Client, ConnectError> {
+    let address = address.to_string();
+    let macaroon = macaroon.to_string();
+    let config = rustls_platform_verifier::tls_config();
+    do_connect(address, config, macaroon).await
+}
+
 async fn do_connect(
     address: String,
     tls_config: ClientConfig,
