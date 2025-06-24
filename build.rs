@@ -24,13 +24,7 @@ fn main() -> std::io::Result<()> {
         "invoicesrpc/invoices.proto",
     ];
 
-    let proto_paths: Vec<_> = protos
-        .iter()
-        .map(|proto| {
-            let proto_path = dir.join(proto);
-            proto_path
-        })
-        .collect();
+    let proto_paths: Vec<_> = protos.iter().map(|proto| dir.join(proto)).collect();
 
     tonic_build::configure()
         .build_client(true)
