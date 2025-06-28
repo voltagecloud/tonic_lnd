@@ -23,26 +23,25 @@ versionrpc = []
 routerrpc = ["lightningrpc"]
 invoicesrpc = ["lightningrpc"]
 all = ["lightningrpc", "walletrpc", "peersrpc", "versionrpc", "routerrpc", "invoicesrpc"]
-default = ["all"]
+ring = ["tonic/tls-ring"]
+aws-lc = ["tonic/tls-aws-lc"]
+tls-native-roots = ["tonic/tls-native-roots"]
+tls-webpki-roots = ["tonic/tls-webpki-roots"]
+tls = ["tls-native-roots", "tls-webpki-roots"]
+default = ["all", "ring", "tls"]
 
 [dependencies]
 hex = "0.4.3"
-http-body = "0.4.5"
-hyper = { version = "0.14.27", features = ["client"], default-features = false }
-prost = "0.12.0"
-rustls = { version = "0.21.0", features = ["dangerous_configuration"], default-features = false }
-rustls-pemfile = "1.0.0"
-rustls-platform-verifier = { version = "0.1.0", optional = true }
-hyper-rustls = { version = "0.24.1", features = ["acceptor", "http2", "tls12"], default-features = false }
-tonic = { version = "0.10.0", features = ["transport", "tls"] }
+prost = "0.13"
 tokio = { version = "1.32.0", features = ["fs"] }
-tokio-stream = { version = "0.1", features = ["net"] }
+tokio-stream = { version = "0.1", features = ["net"], optional = true}
+tonic = { version = "0.13.1", features = ["transport"] }
 
 [build-dependencies]
-tonic-build = "0.10.0"
+tonic-build = "0.13.1"
 
 [dev-dependencies]
-tokio = { version = "1.7.1", features = ["rt-multi-thread"] }
+tokio = { version = "1.32.0", features = ["rt-multi-thread"] }
 
 [[example]]
 name = "get_info"
@@ -72,4 +71,4 @@ required-features = ["invoicesrpc"]
 [[example]]
 name = "intercept_htlcs"
 path = "examples/intercept_htlcs.rs"
-required-features = ["routerrpc"]
+required-features = ["routerrpc", "tokio-stream"]

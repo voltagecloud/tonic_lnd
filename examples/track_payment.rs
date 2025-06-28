@@ -40,7 +40,7 @@ async fn main() {
 
     let response = client
         .router()
-        .track_payment(fedimint_tonic_lnd::routerrpc::TrackPaymentRequest {
+        .track_payment_v2(fedimint_tonic_lnd::routerrpc::TrackPaymentRequest {
             payment_hash,
             no_inflight_updates: false,
         })
