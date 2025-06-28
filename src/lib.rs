@@ -5,18 +5,21 @@ pub extern crate tonic;
 
 pub use error::ConnectError;
 use error::InternalConnectError;
-use http_body::combinators::UnsyncBoxBody;
-use hyper::client::HttpConnector;
+use http_body_util::combinators::UnsyncBoxBody;
 use hyper::Uri;
 use hyper_rustls::HttpsConnector;
+use hyper_util::client::legacy::connect::HttpConnector;
+use hyper_util::rt::TokioExecutor;
 use rustls::client::ClientConfig;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use tonic::codegen::{Bytes, InterceptedService};
+use tonic::codegen::Bytes;
+use tonic::service::interceptor::InterceptedService;
+use tonic::transport::{ClientTlsConfig, Endpoint};
 use tonic::Status;
 
 type Service = InterceptedService<
-    hyper::Client<HttpsConnector<HttpConnector>, UnsyncBoxBody<Bytes, Status>>,
+    hyper_util::client::legacy::Client<HttpsConnector<HttpConnector>, UnsyncBoxBody<Bytes, Status>>,
     MacaroonInterceptor,
 >;
 
@@ -292,16 +295,18 @@ async fn do_connect(
     tls_config: ClientConfig,
     macaroon: String,
 ) -> Result<Client, ConnectError> {
+    let mut endpoint = Endpoint::from_shared(address.clone())
+        .map_err(InternalConnectError::Endpoint)?
+        .tls_config(ClientTlsConfig::new().rustls_client_config(tls_config))?;
+
     let connector = hyper_rustls::HttpsConnectorBuilder::new()
         .with_tls_config(tls_config)
         .https_or_http()
         .enable_http2()
         .build();
+    let client = hyper_util::client::legacy::Client::builder(TokioExecutor::new()).build(connector);
 
-    let svc = InterceptedService::new(
-        hyper::Client::builder().build(connector),
-        MacaroonInterceptor { macaroon },
-    );
+    let svc = InterceptedService::new(client, MacaroonInterceptor { macaroon });
     let uri =
         Uri::from_str(address.as_str()).map_err(|error| InternalConnectError::InvalidAddress {
             address,
@@ -325,24 +330,22 @@ async fn do_connect(
         #[cfg(feature = "routerrpc")]
         router: routerrpc::router_client::RouterClient::with_origin(svc.clone(), uri.clone()),
         #[cfg(feature = "invoicesrpc")]
-        invoices: invoicesrpc::invoices_client::InvoicesClient::with_origin(
-            svc.clone(),
-            uri.clone(),
-        ),
+        invoices: invoicesrpc::invoices_client::InvoicesClient::with_origin(svc, uri),
     };
+
     Ok(client)
 }
 
 mod tls {
     use crate::error::{ConnectError, InternalConnectError};
-    use rustls::{
-        client::{ClientConfig, ServerCertVerified, ServerCertVerifier},
-        Certificate, Error as TLSError, RootCertStore, ServerName,
-    };
+    use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+    use rustls::crypto::{verify_tls12_signature, verify_tls13_signature};
+    use rustls::{client::ClientConfig, DigitallySignedStruct, RootCertStore, SignatureScheme};
+    use rustls_pki_types::{CertificateDer, ServerName, UnixTime};
+
     use std::{
         path::{Path, PathBuf},
         sync::Arc,
-        time::SystemTime,
     };
 
     pub(crate) async fn config<P: AsRef<Path> + Into<PathBuf>>(
@@ -351,17 +354,18 @@ mod tls {
         let hybrid_verifier = HybridCertVerifier::load(cert).await?;
 
         Ok(ClientConfig::builder()
-            .with_safe_defaults()
+            .dangerous()
             .with_custom_certificate_verifier(Arc::new(hybrid_verifier))
             .with_no_client_auth())
     }
 
-    pub(crate) struct HybridCertVerifier {
-        exact_certs: Vec<Vec<u8>>,
+    #[derive(Debug)]
+    pub(crate) struct HybridCertVerifier<'a> {
+        exact_certs: Vec<CertificateDer<'a>>,
         standard_verifier: Arc<dyn ServerCertVerifier>,
     }
 
-    impl HybridCertVerifier {
+    impl<'a> HybridCertVerifier<'a> {
         pub(crate) async fn load<P: AsRef<Path> + Into<PathBuf>>(
             cert: Cert<P>,
         ) -> Result<Self, InternalConnectError> {
@@ -378,13 +382,14 @@ mod tls {
             };
 
             let mut reader = &*contents;
-            let cert_data = try_map_err!(rustls_pemfile::certs(&mut reader), |error| {
+            let data = rustls_pemfile::certs(&mut reader).collect::<Result<Vec<_>, _>>();
+            let cert_data = try_map_err!(data, |error| {
                 InternalConnectError::ParseCert { file: None, error }
             });
 
             let mut root_store = RootCertStore::empty();
-            for cert_bytes in &cert_data {
-                if let Err(_err) = root_store.add(&Certificate(cert_bytes.clone())) {
+            for cert in &cert_data {
+                if let Err(_err) = root_store.add(CertificateDer::from_slice(cert.as_ref())) {
                     return Err(InternalConnectError::ParseCert {
                         file: None,
                         error: std::io::Error::new(
@@ -395,24 +400,32 @@ mod tls {
                 }
             }
 
-            let standard_verifier = rustls::client::WebPkiVerifier::new(root_store, None);
+            let standard_verifier =
+                rustls::client::WebPkiServerVerifier::builder(Arc::new(root_store))
+                    .build()
+                    .map_err(InternalConnectError::Verifier)?;
 
             Ok(HybridCertVerifier {
                 exact_certs: cert_data,
-                standard_verifier: Arc::new(standard_verifier),
+                standard_verifier,
             })
         }
 
-        fn try_exact_match(&self, end_entity: &Certificate, intermediates: &[Certificate]) -> bool {
+        fn try_exact_match(
+            &self,
+            end_entity: &CertificateDer,
+            intermediates: &[CertificateDer],
+        ) -> bool {
             let mut presented_certs = intermediates.to_vec();
             presented_certs.push(end_entity.clone());
 
+            // TODO: collapse logic below into single conditional
             if self.exact_certs.len() != presented_certs.len() {
                 return false;
             }
 
             for (expected, presented) in self.exact_certs.iter().zip(presented_certs.iter()) {
-                if presented.0 != *expected {
+                if presented != expected {
                     return false;
                 }
             }
@@ -421,16 +434,15 @@ mod tls {
         }
     }
 
-    impl ServerCertVerifier for HybridCertVerifier {
+    impl<'a> ServerCertVerifier for HybridCertVerifier<'a> {
         fn verify_server_cert(
             &self,
-            end_entity: &Certificate,
-            intermediates: &[Certificate],
-            server_name: &ServerName,
-            scts: &mut dyn Iterator<Item = &[u8]>,
+            end_entity: &CertificateDer<'_>,
+            intermediates: &[CertificateDer<'_>],
+            server_name: &ServerName<'_>,
             ocsp_response: &[u8],
-            now: SystemTime,
-        ) -> Result<ServerCertVerified, TLSError> {
+            now: UnixTime,
+        ) -> Result<ServerCertVerified, rustls::Error> {
             if self.try_exact_match(end_entity, intermediates) {
                 return Ok(ServerCertVerified::assertion());
             }
@@ -439,10 +451,43 @@ mod tls {
                 end_entity,
                 intermediates,
                 server_name,
-                scts,
                 ocsp_response,
                 now,
             )
+        }
+
+        fn verify_tls12_signature(
+            &self,
+            message: &[u8],
+            cert: &CertificateDer<'_>,
+            dss: &DigitallySignedStruct,
+        ) -> Result<HandshakeSignatureValid, rustls::Error> {
+            verify_tls12_signature(
+                message,
+                cert,
+                dss,
+                &rustls::crypto::ring::default_provider().signature_verification_algorithms,
+            )
+        }
+
+        fn verify_tls13_signature(
+            &self,
+            message: &[u8],
+            cert: &CertificateDer<'_>,
+            dss: &DigitallySignedStruct,
+        ) -> Result<HandshakeSignatureValid, rustls::Error> {
+            verify_tls13_signature(
+                message,
+                cert,
+                dss,
+                &rustls::crypto::ring::default_provider().signature_verification_algorithms,
+            )
+        }
+
+        fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+            rustls::crypto::ring::default_provider()
+                .signature_verification_algorithms
+                .supported_schemes()
         }
     }
 

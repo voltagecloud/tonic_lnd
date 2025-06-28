@@ -1,6 +1,8 @@
 use std::fmt;
 use std::path::PathBuf;
 
+use rustls::server::VerifierBuilderError;
+
 /// Error that could happen during connecting to LND
 ///
 /// This error may be returned by the `connect()` function if connecting failed.
@@ -18,6 +20,7 @@ impl From<InternalConnectError> for ConnectError {
 }
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub(crate) enum InternalConnectError {
     ReadFile {
         file: PathBuf,
@@ -31,6 +34,8 @@ pub(crate) enum InternalConnectError {
         address: String,
         error: Box<dyn std::error::Error + Send + Sync + 'static>,
     },
+    Verifier(VerifierBuilderError),
+    Endpoint(tonic::transport::Error),
 }
 
 impl fmt::Display for ConnectError {
@@ -44,6 +49,8 @@ impl fmt::Display for ConnectError {
                 None => write!(f, "failed to parse certificate"),
             },
             InvalidAddress { address, .. } => write!(f, "invalid address {}", address),
+            Verifier(error) => write!(f, "failed to build verifier: {}", error),
+            Endpoint(error) => write!(f, "connection error: {}", error),
         }
     }
 }
@@ -56,6 +63,8 @@ impl std::error::Error for ConnectError {
             ReadFile { error, .. } => Some(error),
             ParseCert { error, .. } => Some(error),
             InvalidAddress { error, .. } => Some(&**error),
+            Verifier(error) => Some(error),
+            Endpoint(error) => Some(error),
         }
     }
 }
