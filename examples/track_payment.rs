@@ -47,12 +47,7 @@ async fn main() {
         .await
         .expect("Failed to call track_payment");
 
-    if let Some(payment) = response
-        .into_inner()
-        .message()
-        .await
-        .expect("Failed to get payment")
-    {
+    if let Some(payment) = response.into_inner().message().await.expect("Failed to get payment") {
         println!("{:?}", payment);
     } else {
         println!("Payment not found");

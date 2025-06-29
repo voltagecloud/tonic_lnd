@@ -40,7 +40,9 @@ async fn main() {
 
     client
         .invoices()
-        .cancel_invoice(fedimint_tonic_lnd::invoicesrpc::CancelInvoiceMsg { payment_hash })
+        .cancel_invoice(fedimint_tonic_lnd::invoicesrpc::CancelInvoiceMsg {
+            payment_hash,
+        })
         .await
         .expect("Failed to cancel invoice");
 

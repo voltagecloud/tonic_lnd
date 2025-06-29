@@ -45,11 +45,7 @@ async fn main() {
         .expect("Failed to call subscribe_invoices")
         .into_inner();
 
-    while let Some(htlc) = htlc_stream
-        .message()
-        .await
-        .expect("Failed to receive invoices")
-    {
+    while let Some(htlc) = htlc_stream.message().await.expect("Failed to receive invoices") {
         println!("HTLC Intercepted------------");
         println!(
             "incoming_circuit_key: {:?}\nincoming_amount_msat: {}\noutgoing_amount_msat: {}\npayment_hash: {:?}\n",

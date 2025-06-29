@@ -5,11 +5,17 @@ pub extern crate tonic;
 
 mod error;
 
-use error::{ConnectError, InternalConnectError};
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 use std::str::FromStr;
+
+use error::ConnectError;
+use error::InternalConnectError;
 use tonic::service::interceptor::InterceptedService;
-use tonic::transport::{Certificate, ClientTlsConfig, Endpoint, Uri};
+use tonic::transport::Certificate;
+use tonic::transport::ClientTlsConfig;
+use tonic::transport::Endpoint;
+use tonic::transport::Uri;
 
 type Service = InterceptedService<tonic::transport::Channel, MacaroonInterceptor>;
 
@@ -210,12 +216,10 @@ impl tonic::service::Interceptor for MacaroonInterceptor {
 async fn load_file(
     path: impl AsRef<Path> + Into<PathBuf>,
 ) -> Result<Vec<u8>, InternalConnectError> {
-    tokio::fs::read(&path)
-        .await
-        .map_err(|error| InternalConnectError::ReadFile {
-            file: path.into(),
-            error,
-        })
+    tokio::fs::read(&path).await.map_err(|error| InternalConnectError::ReadFile {
+        file: path.into(),
+        error,
+    })
 }
 
 async fn load_macaroon(
@@ -291,19 +295,17 @@ async fn do_connect(
         Endpoint::from_shared(address.clone()).map_err(InternalConnectError::Endpoint)?;
 
     if let Some(cert) = certs {
-        let tls_config = ClientTlsConfig::new()
-            .ca_certificate(cert)
-            .with_enabled_roots();
-        endpoint = endpoint
-            .tls_config(tls_config)
-            .map_err(InternalConnectError::Endpoint)?;
+        let tls_config = ClientTlsConfig::new().ca_certificate(cert).with_enabled_roots();
+        endpoint = endpoint.tls_config(tls_config).map_err(InternalConnectError::Endpoint)?;
     }
 
-    let channel = endpoint
-        .connect()
-        .await
-        .map_err(InternalConnectError::Endpoint)?;
-    let channel = InterceptedService::new(channel, MacaroonInterceptor { macaroon });
+    let channel = endpoint.connect().await.map_err(InternalConnectError::Endpoint)?;
+    let channel = InterceptedService::new(
+        channel,
+        MacaroonInterceptor {
+            macaroon,
+        },
+    );
 
     let uri =
         Uri::from_str(address.as_str()).map_err(|error| InternalConnectError::InvalidAddress {
