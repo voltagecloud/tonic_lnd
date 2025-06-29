@@ -1,7 +1,7 @@
 # Rustfmt config to match project import style (nightly options enabled)
 edition = "2021"
-use_small_heuristics = "Off"
-imports_granularity = "Item"
 group_imports = "StdExternalCrate"
-reorder_imports = false
+imports_granularity = "Module"
 normalize_doc_attributes = false
+reorder_imports = true
+use_small_heuristics = "Off"
