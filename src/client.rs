@@ -4,7 +4,7 @@ use std::str::FromStr;
 use tonic::service::interceptor::InterceptedService;
 use tonic::transport::{Certificate, ClientTlsConfig, Endpoint, Uri};
 
-use crate::error::{ConnectError, InternalConnectError};
+use crate::error::Result;
 use crate::protos::*;
 
 type Service = InterceptedService<tonic::transport::Channel, MacaroonInterceptor>;
@@ -154,7 +154,7 @@ impl tonic::service::Interceptor for MacaroonInterceptor {
     fn call(
         &mut self,
         mut request: tonic::Request<()>,
-    ) -> Result<tonic::Request<()>, tonic::Status> {
+    ) -> std::result::Result<tonic::Request<()>, tonic::Status> {
         request.metadata_mut().insert(
             "macaroon",
             tonic::metadata::MetadataValue::from_str(&self.macaroon)
@@ -164,18 +164,11 @@ impl tonic::service::Interceptor for MacaroonInterceptor {
     }
 }
 
-async fn load_file(
-    path: impl AsRef<Path> + Into<PathBuf>,
-) -> Result<Vec<u8>, InternalConnectError> {
-    tokio::fs::read(&path).await.map_err(|error| InternalConnectError::ReadFile {
-        file: path.into(),
-        error,
-    })
+async fn load_file(path: impl AsRef<Path> + Into<PathBuf>) -> std::io::Result<Vec<u8>> {
+    tokio::fs::read(&path).await
 }
 
-async fn load_macaroon(
-    path: impl AsRef<Path> + Into<PathBuf>,
-) -> Result<String, InternalConnectError> {
+async fn load_macaroon(path: impl AsRef<Path> + Into<PathBuf>) -> std::io::Result<String> {
     let macaroon = load_file(path).await?;
 
     Ok(hex::encode(macaroon))
@@ -192,11 +185,7 @@ async fn load_macaroon(
 ///
 /// If you have a motivating use case for use of direct data feel free to open an issue and
 /// explain.
-pub async fn connect<CP, MP>(
-    address: String,
-    cert_file: CP,
-    macaroon_file: MP,
-) -> Result<Client, ConnectError>
+pub async fn connect<CP, MP>(address: String, cert_file: CP, macaroon_file: MP) -> Result<Client>
 where
     CP: AsRef<Path> + Into<PathBuf> + std::fmt::Debug,
     MP: AsRef<Path> + Into<PathBuf> + std::fmt::Debug,
@@ -217,7 +206,7 @@ pub async fn connect_from_memory(
     address: impl ToString,
     cert_pem: impl ToString,
     macaroon: impl ToString,
-) -> Result<Client, ConnectError> {
+) -> Result<Client> {
     let cert_pem = cert_pem.to_string();
     let cert = Certificate::from_pem(cert_pem.as_bytes());
 
@@ -233,7 +222,7 @@ pub async fn connect_from_memory(
 pub async fn connect_from_memory_with_system_certs(
     address: impl ToString,
     macaroon: impl ToString,
-) -> Result<Client, ConnectError> {
+) -> Result<Client> {
     let address = address.to_string();
     let macaroon = macaroon.to_string();
 
@@ -244,16 +233,15 @@ async fn do_connect(
     address: String,
     certs: Option<Certificate>,
     macaroon: String,
-) -> Result<Client, ConnectError> {
-    let mut endpoint =
-        Endpoint::from_shared(address.clone()).map_err(InternalConnectError::Endpoint)?;
+) -> Result<Client> {
+    let mut endpoint = Endpoint::from_shared(address.clone())?;
 
     if let Some(cert) = certs {
         let tls_config = ClientTlsConfig::new().ca_certificate(cert).with_enabled_roots();
-        endpoint = endpoint.tls_config(tls_config).map_err(InternalConnectError::Endpoint)?;
+        endpoint = endpoint.tls_config(tls_config)?;
     }
 
-    let channel = endpoint.connect().await.map_err(InternalConnectError::Endpoint)?;
+    let channel = endpoint.connect().await?;
     let channel = InterceptedService::new(
         channel,
         MacaroonInterceptor {
@@ -261,11 +249,7 @@ async fn do_connect(
         },
     );
 
-    let uri =
-        Uri::from_str(address.as_str()).map_err(|error| InternalConnectError::InvalidAddress {
-            address,
-            error: Box::new(error),
-        })?;
+    let uri = Uri::from_str(address.as_str())?;
 
     let client = Client {
         #[cfg(feature = "lightningrpc")]

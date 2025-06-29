@@ -1,70 +1,11 @@
-use std::fmt;
-use std::path::PathBuf;
+pub type Result<T> = std::result::Result<T, Error>;
 
-/// Error that could happen during connecting to LND
-///
-/// This error may be returned by the `connect()` function if connecting failed.
-/// It is currently opaque because it's unclear how the variants will look long-term.
-/// Thus you probably only want to display it.
-#[derive(Debug)]
-pub struct ConnectError {
-    internal: InternalConnectError,
-}
-
-impl From<InternalConnectError> for ConnectError {
-    fn from(value: InternalConnectError) -> Self {
-        ConnectError {
-            internal: value,
-        }
-    }
-}
-
-#[derive(Debug)]
-#[non_exhaustive]
-pub(crate) enum InternalConnectError {
-    ReadFile {
-        file: PathBuf,
-        error: std::io::Error,
-    },
-    InvalidAddress {
-        address: String,
-        error: Box<dyn std::error::Error + Send + Sync + 'static>,
-    },
-    Endpoint(tonic::transport::Error),
-}
-
-impl fmt::Display for ConnectError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use InternalConnectError::*;
-
-        match &self.internal {
-            ReadFile {
-                file,
-                ..
-            } => write!(f, "failed to read file {}", file.display()),
-            InvalidAddress {
-                address,
-                ..
-            } => write!(f, "invalid address {}", address),
-            Endpoint(error) => write!(f, "connection error: {}", error),
-        }
-    }
-}
-
-impl std::error::Error for ConnectError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        use InternalConnectError::*;
-
-        match &self.internal {
-            ReadFile {
-                error,
-                ..
-            } => Some(error),
-            InvalidAddress {
-                error,
-                ..
-            } => Some(&**error),
-            Endpoint(error) => Some(error),
-        }
-    }
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Filesystem error: {0}")]
+    Filesystem(#[from] std::io::Error),
+    #[error("Tonic error: {0}")]
+    Tonic(#[from] tonic::transport::Error),
+    #[error("Invalid address: {0}")]
+    InvalidAddress(#[from] http::uri::InvalidUri),
 }
