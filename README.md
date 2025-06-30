@@ -1,7 +1,7 @@
 # Tonic LND client
 
-[![Crate](https://img.shields.io/crates/v/fedimint-tonic-lnd.svg?logo=rust)](https://crates.io/crates/fedimint-tonic-lnd)
-[![Documentation](https://img.shields.io/static/v1?logo=read-the-docs&label=docs.rs&message=fedimint-tonic-lnd&color=informational)](https://docs.rs/fedimint-tonic-lnd/)
+[![Crate](https://img.shields.io/crates/v/voltage-tonic-lnd.svg?logo=rust)](https://crates.io/crates/voltage-tonic-lnd)
+[![Documentation](https://img.shields.io/static/v1?logo=read-the-docs&label=docs.rs&message=voltage-tonic-lnd&color=informational)](https://docs.rs/voltage-tonic-lnd/)
 
 Rust implementation of LND RPC client using async gRPC library `tonic`.
 
@@ -52,13 +52,13 @@ All features are included by default, but you can explicitly select the features
 Add the crate to your `Cargo.toml`:
 
 ```toml
-fedimint-tonic-lnd = "0.1"
+voltage-tonic-lnd = "0.1"
 ```
 
 By default, all features are enabled. To customize, specify features:
 
 ```toml
-fedimint-tonic-lnd = { version = "0.1", default-features = false, features = ["lightningrpc", "routerrpc"] }
+voltage-tonic-lnd = { version = "0.1", default-features = false, features = ["lightningrpc", "routerrpc", "aws-lc", "tls-native-roots"] }
 ```
 
 If you need to override the proto files, set the `LND_REPO_DIR` environment variable to a directory with a cloned [`lnd`](https://github.com/lightningnetwork/lnd.git) repo during build.
@@ -69,26 +69,26 @@ You can use the builder API for flexible connection:
 
 ```rust
 #[tokio::main]
-async fn main() -> fedimint_tonic_lnd::Result<()> {
-    let client = fedimint_tonic_lnd::Client::builder()
+async fn main() -> voltage_tonic_lnd::Result<()> {
+    let client = voltage_tonic_lnd::Client::builder()
         .address("https://localhost:10009")
         .macaroon_path("/path/to/admin.macaroon")
         .cert_path("/path/to/tls.cert")
         .build()
         .await?;
 
-    let info = client.lightning().get_info(fedimint_tonic_lnd::lnrpc::GetInfoRequest {}).await?;
+    let info = client.lightning().get_info(voltage_tonic_lnd::lnrpc::GetInfoRequest {}).await?;
     println!("{:#?}", info);
     Ok(())
 }
 ```
 
-See more [examples in the repo](https://github.com/fedimint/tonic_lnd/tree/master/examples) for advanced usage (router, invoices, payments, intercept HTLCs, etc).
+See more [examples in the repo](https://github.com/voltagecloud/tonic-lnd/tree/master/examples) for advanced usage (router, invoices, payments, intercept HTLCs, etc).
 
 ### Alternative: In-Memory Credentials
 
 ```rust
-let client = fedimint_tonic_lnd::Client::builder()
+let client = voltage_tonic_lnd::Client::builder()
     .address("https://localhost:10009")
     .macaroon_contents(hex_macaroon_string)
     .cert_contents(pem_cert_string)

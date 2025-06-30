@@ -34,13 +34,13 @@ async fn main() {
     .expect("payment_hash is not a valid hex");
 
     // Connecting to LND requires only address, cert file, and macaroon file
-    let mut client = fedimint_tonic_lnd::connect(address, cert_file, macaroon_file)
+    let mut client = voltage_tonic_lnd::connect(address, cert_file, macaroon_file)
         .await
         .expect("failed to connect");
 
     client
         .invoices()
-        .cancel_invoice(fedimint_tonic_lnd::invoicesrpc::CancelInvoiceMsg {
+        .cancel_invoice(voltage_tonic_lnd::invoicesrpc::CancelInvoiceMsg {
             payment_hash,
         })
         .await

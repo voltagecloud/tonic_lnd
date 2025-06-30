@@ -5,7 +5,7 @@
 // The address must start with `https://`!
 //
 // Example run: `cargo run --features=lightningrpc --example get_info <address> [tls.cert] <file.macaroon>`
-use fedimint_tonic_lnd::Client;
+use voltage_tonic_lnd::Client;
 
 #[tokio::main]
 #[cfg(feature = "lightningrpc")]
@@ -35,7 +35,7 @@ async fn main() {
     let info = client
         .lightning()
         // All calls require at least empty parameter
-        .get_info(fedimint_tonic_lnd::lnrpc::GetInfoRequest {})
+        .get_info(voltage_tonic_lnd::lnrpc::GetInfoRequest {})
         .await
         .expect("failed to get info");
 
