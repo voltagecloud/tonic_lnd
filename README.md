@@ -10,7 +10,7 @@ Rust implementation of LND RPC client using async gRPC library `tonic`.
 **Warning: this crate is in early development and may have unknown problems!
 Review it before using with mainnet funds!**
 
-This crate supports the following LND RPC APIs (from LND [v0.15.4-beta](https://github.com/lightningnetwork/lnd/tree/v0.15.4-beta)):
+This crate supports the following LND RPC APIs (from LND [v0.19.1-beta](https://github.com/lightningnetwork/lnd/tree/v0.19.1-beta)):
 - [Lightning](https://lightning.engineering/api-docs/category/lightning-service)
 - [WalletKit](https://lightning.engineering/api-docs/category/walletkit-service)
 - [Signer](https://lightning.engineering/api-docs/category/signer-service)
@@ -34,7 +34,10 @@ Each RPC API is behind a Cargo feature flag. All features are enabled by default
 - `staterpc` (State)
 - `versionrpc` (Versioner)
 - `all` (enables all RPCs)
-- TLS backend selection: `ring`, `aws-lc`, `tls-native-roots`, `tls-webpki-roots`, `tls` (meta)
+- TLS backend selection: `ring`, `aws-lc`,
+- TLS root CA selection: `tls-native-roots`, `tls-webpki-roots`, `tls`
+
+At least one TLS backend is required. `ring` is currently used as the default.
 
 See `Cargo.toml` for the full list and combinations.
 
@@ -49,13 +52,13 @@ All features are included by default, but you can explicitly select the features
 Add the crate to your `Cargo.toml`:
 
 ```toml
-fedimint-tonic-lnd = "*"
+fedimint-tonic-lnd = "0.1"
 ```
 
 By default, all features are enabled. To customize, specify features:
 
 ```toml
-fedimint-tonic-lnd = { version = "*", default-features = false, features = ["lightningrpc", "routerrpc"] }
+fedimint-tonic-lnd = { version = "0.1", default-features = false, features = ["lightningrpc", "routerrpc"] }
 ```
 
 If you need to override the proto files, set the `LND_REPO_DIR` environment variable to a directory with a cloned [`lnd`](https://github.com/lightningnetwork/lnd.git) repo during build.
@@ -67,7 +70,7 @@ You can use the builder API for flexible connection:
 ```rust
 #[tokio::main]
 async fn main() -> fedimint_tonic_lnd::Result<()> {
-    let client = fedimint_tonic_lnd::ClientBuilder::new()
+    let client = fedimint_tonic_lnd::Client::builder()
         .address("https://localhost:10009")
         .macaroon_path("/path/to/admin.macaroon")
         .cert_path("/path/to/tls.cert")
@@ -85,7 +88,7 @@ See more [examples in the repo](https://github.com/fedimint/tonic_lnd/tree/maste
 ### Alternative: In-Memory Credentials
 
 ```rust
-let client = fedimint_tonic_lnd::ClientBuilder::new()
+let client = fedimint_tonic_lnd::Client::builder()
     .address("https://localhost:10009")
     .macaroon_contents(hex_macaroon_string)
     .cert_contents(pem_cert_string)
