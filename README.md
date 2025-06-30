@@ -10,16 +10,35 @@ Rust implementation of LND RPC client using async gRPC library `tonic`.
 **Warning: this crate is in early development and may have unknown problems!
 Review it before using with mainnet funds!**
 
-This crate supports *[Lightning](https://lightning.engineering/api-docs/category/lightning-service)*, *[WalletKit](https://lightning.engineering/api-docs/category/walletkit-service)*, *[Signer](https://lightning.engineering/api-docs/category/signer-service)*, and *[Peer](https://lightning.engineering/api-docs/category/peers-service)* RPC APIs from LND [v0.15.4-beta](https://github.com/lightningnetwork/lnd/tree/v0.15.4-beta)
+This crate supports the following LND RPC APIs (from LND [v0.15.4-beta](https://github.com/lightningnetwork/lnd/tree/v0.15.4-beta)):
+- [Lightning](https://lightning.engineering/api-docs/category/lightning-service)
+- [WalletKit](https://lightning.engineering/api-docs/category/walletkit-service)
+- [Signer](https://lightning.engineering/api-docs/category/signer-service)
+- [Peer](https://lightning.engineering/api-docs/category/peers-service)
+- [Router](https://lightning.engineering/api-docs/category/router-service)
+- [Invoices](https://lightning.engineering/api-docs/category/invoices-service)
+- [State](https://lightning.engineering/api-docs/category/state-service)
+- [Versioner](https://lightning.engineering/api-docs/category/versioner-service)
 
-This crate implements LND GRPC using [`tonic`](https://docs.rs/tonic/) and [`prost`](https://docs.rs/prost/).
-Apart from being up-to-date at the time of writing (:D) it also allows `async` usage.
-It contains vendored `*.proto` files so LND source code is not *required*
-but accepts an environment variable `LND_REPO_DIR` which overrides the vendored `*.proto` files.
-This can be used to test new features in non-released `lnd`.
-(Actually, the motivating project using this library was that case. :))
+This crate implements LND gRPC using [`tonic`](https://docs.rs/tonic/) and [`prost`](https://docs.rs/prost/), providing async usage and vendored `*.proto` files (LND source not required by default). You can override the proto files at build time by setting the `LND_REPO_DIR` environment variable, to test against unreleased LND features.
 
-## Features
+## Features & Cargo Flags
+
+Each RPC API is behind a Cargo feature flag. All features are enabled by default, but you can select a subset for slimmer builds. See the `[features]` section in `Cargo.toml` for details. Example features:
+- `lightningrpc` (core Lightning API)
+- `walletrpc` (WalletKit, depends on `signrpc`)
+- `signrpc` (Signer)
+- `peersrpc` (Peers)
+- `routerrpc` (Router)
+- `invoicesrpc` (Invoices)
+- `staterpc` (State)
+- `versionrpc` (Versioner)
+- `all` (enables all RPCs)
+- TLS backend selection: `ring`, `aws-lc`, `tls-native-roots`, `tls-webpki-roots`, `tls` (meta)
+
+See `Cargo.toml` for the full list and combinations.
+
+## Usage
 
 Since most of the LND RPCs supported by this crate can be used in isolation, and your project likely only needs a subset of these RPCs, we expose each RPC under [Cargo feature gates](https://doc.rust-lang.org/cargo/reference/features.html). See the Cargo manifest for the [latest supported features](https://github.com/Kixunil/tonic_lnd/blob/master/Cargo.toml)
 
@@ -27,44 +46,54 @@ All features are included by default, but you can explicitly select the features
 
 ## Usage
 
-There's no setup needed beyond adding the crate to your `Cargo.toml`.
-If you need to change the `*.proto` files from which the client is generated, set the environment variable `LND_REPO_DIR` to a directory with cloned [`lnd`](https://github.com/lightningnetwork/lnd.git) during build.
+Add the crate to your `Cargo.toml`:
 
-Here's an example of retrieving information from LND (`[getinfo](https://api.lightning.community/#getinfo)` call).
-You can find this and more [examples in crate root](https://github.com/Kixunil/tonic_lnd/tree/master/examples) for your convenience.
+```toml
+fedimint-tonic-lnd = "*"
+```
+
+By default, all features are enabled. To customize, specify features:
+
+```toml
+fedimint-tonic-lnd = { version = "*", default-features = false, features = ["lightningrpc", "routerrpc"] }
+```
+
+If you need to override the proto files, set the `LND_REPO_DIR` environment variable to a directory with a cloned [`lnd`](https://github.com/lightningnetwork/lnd.git) repo during build.
+
+### Example: Connect and Get Info
+
+You can use the builder API for flexible connection:
 
 ```rust
-// This program accepts three arguments: address, cert file, macaroon file
-// The address must start with `https://`!
-
 #[tokio::main]
-async fn main() {
-    let mut args = std::env::args_os();
-    args.next().expect("not even zeroth arg given");
-    let address = args.next().expect("missing arguments: address, cert file, macaroon file");
-    let cert_file = args.next().expect("missing arguments: cert file, macaroon file");
-    let macaroon_file = args.next().expect("missing argument: macaroon file");
-    let address = address.into_string().expect("address is not UTF-8");
+async fn main() -> fedimint_tonic_lnd::Result<()> {
+    let client = fedimint_tonic_lnd::ClientBuilder::new()
+        .address("https://localhost:10009")
+        .macaroon_path("/path/to/admin.macaroon")
+        .cert_path("/path/to/tls.cert")
+        .build()
+        .await?;
 
-    // Connecting to LND requires only address, cert file, and macaroon file
-    let mut client = fedimint_tonic_lnd::connect(address, cert_file, macaroon_file)
-        .await
-        .expect("failed to connect");
-
-    let info = client
-        .lightning()
-        // All calls require at least empty parameter
-        .get_info(fedimint_tonic_lnd::lnrpc::GetInfoRequest {})
-        .await
-        .expect("failed to get info");
-
-    // We only print it here, note that in real-life code you may want to call `.into_inner()` on
-    // the response to get the message.
+    let info = client.lightning().get_info(fedimint_tonic_lnd::lnrpc::GetInfoRequest {}).await?;
     println!("{:#?}", info);
+    Ok(())
 }
 ```
 
-## MSRV
+See more [examples in the repo](https://github.com/fedimint/tonic_lnd/tree/master/examples) for advanced usage (router, invoices, payments, intercept HTLCs, etc).
+
+### Alternative: In-Memory Credentials
+
+```rust
+let client = fedimint_tonic_lnd::ClientBuilder::new()
+    .address("https://localhost:10009")
+    .macaroon_contents(hex_macaroon_string)
+    .cert_contents(pem_cert_string)
+    .build()
+    .await?;
+```
+
+## Minimum Supported Rust Version (MSRV)
 
 1.65.0
 
