@@ -2,7 +2,7 @@
 name = "fedimint-tonic-lnd"
 version = "0.1.3"
 edition = "2021"
-rust-version = "1.65.0"
+rust-version = "1.75.0"
 description = "An async library implementing LND RPC via tonic and prost. Forked from https://github.com/Kixunil/tonic_lnd"
 homepage = "https://github.com/fedimint/tonic_lnd"
 repository = "https://github.com/fedimint/tonic_lnd"

@@ -95,7 +95,7 @@ let client = fedimint_tonic_lnd::ClientBuilder::new()
 
 ## Minimum Supported Rust Version (MSRV)
 
-1.65.0
+1.75.0
 
 ## License
 
