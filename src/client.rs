@@ -3,6 +3,7 @@ use std::str::FromStr;
 
 use tonic::service::interceptor::InterceptedService;
 use tonic::transport::{Certificate, ClientTlsConfig, Endpoint, Uri};
+use zeroize::Zeroizing;
 
 use crate::error::{Error, Result};
 use crate::protos::*;
@@ -70,7 +71,7 @@ pub type StateClient = lnrpc::state_client::StateClient<Service>;
 pub struct ClientBuilder {
     address: Option<String>,
     macaroon_path: Option<PathBuf>,
-    macaroon_contents: Option<String>,
+    macaroon_contents: Option<Zeroizing<String>>,
     cert_path: Option<PathBuf>,
     cert_contents: Option<String>,
 }
@@ -122,7 +123,7 @@ impl ClientBuilder {
     ///
     /// This is mutually exclusive with [`macaroon_path`].
     pub fn macaroon_contents(mut self, contents: impl ToString) -> Self {
-        self.macaroon_contents = Some(contents.to_string());
+        self.macaroon_contents = Some(Zeroizing::new(contents.to_string()));
         self
     }
 
@@ -158,10 +159,8 @@ impl ClientBuilder {
 
         let macaroon = if let Some(path) = self.macaroon_path {
             load_macaroon(path).await?
-        } else if let Some(contents) = self.macaroon_contents {
-            contents
         } else {
-            return Err(Error::MissingMacaroon);
+            self.macaroon_contents.ok_or(Error::MissingMacaroon)?
         };
 
         let cert = if let Some(path) = self.cert_path {
@@ -302,7 +301,7 @@ impl Client {
 /// Supplies requests with macaroon
 #[derive(Clone)]
 pub struct MacaroonInterceptor {
-    macaroon: String,
+    macaroon: Zeroizing<String>,
 }
 
 impl tonic::service::Interceptor for MacaroonInterceptor {
@@ -323,10 +322,12 @@ async fn load_file(path: impl AsRef<Path> + Into<PathBuf>) -> std::io::Result<Ve
     tokio::fs::read(&path).await
 }
 
-async fn load_macaroon(path: impl AsRef<Path> + Into<PathBuf>) -> std::io::Result<String> {
+async fn load_macaroon(
+    path: impl AsRef<Path> + Into<PathBuf>,
+) -> std::io::Result<Zeroizing<String>> {
     let macaroon = load_file(path).await?;
 
-    Ok(hex::encode(macaroon))
+    Ok(Zeroizing::new(hex::encode(macaroon)))
 }
 
 /// Connects to LND using given address and credentials
@@ -383,7 +384,7 @@ pub async fn connect_from_memory_with_system_certs(
 async fn do_connect(
     address: String,
     certs: Option<Certificate>,
-    macaroon: String,
+    macaroon: Zeroizing<String>,
 ) -> Result<Client> {
     let mut endpoint = Endpoint::from_shared(address.clone())?;
 
