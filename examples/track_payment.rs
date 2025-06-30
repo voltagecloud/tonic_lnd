@@ -34,13 +34,13 @@ async fn main() {
     .expect("payment_hash is not a valid hex");
 
     // Connecting to LND requires only address, cert file, and macaroon file
-    let mut client = fedimint_tonic_lnd::connect(address, cert_file, macaroon_file)
+    let mut client = voltage_tonic_lnd::connect(address, cert_file, macaroon_file)
         .await
         .expect("failed to connect");
 
     let response = client
         .router()
-        .track_payment_v2(fedimint_tonic_lnd::routerrpc::TrackPaymentRequest {
+        .track_payment_v2(voltage_tonic_lnd::routerrpc::TrackPaymentRequest {
             payment_hash,
             no_inflight_updates: false,
         })
