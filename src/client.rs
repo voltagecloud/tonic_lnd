@@ -386,13 +386,12 @@ async fn do_connect(
     certs: Option<Certificate>,
     macaroon: Zeroizing<String>,
 ) -> Result<Client> {
-    let mut endpoint = Endpoint::from_shared(address.clone())?;
-
+    let mut tls_config = ClientTlsConfig::new().with_enabled_roots();
     if let Some(cert) = certs {
-        let tls_config = ClientTlsConfig::new().ca_certificate(cert).with_enabled_roots();
-        endpoint = endpoint.tls_config(tls_config)?;
+        tls_config = tls_config.ca_certificate(cert);
     }
 
+    let endpoint = Endpoint::from_shared(address.clone())?.tls_config(tls_config)?;
     let channel = endpoint.connect().await?;
     let channel = InterceptedService::new(
         channel,
