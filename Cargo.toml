@@ -2,7 +2,7 @@
 name = "fedimint-tonic-lnd"
 version = "0.1.3"
 edition = "2021"
-rust-version = "1.65.0"
+rust-version = "1.75.0"
 description = "An async library implementing LND RPC via tonic and prost. Forked from https://github.com/Kixunil/tonic_lnd"
 homepage = "https://github.com/fedimint/tonic_lnd"
 repository = "https://github.com/fedimint/tonic_lnd"
@@ -22,7 +22,8 @@ peersrpc = []
 versionrpc = []
 routerrpc = ["lightningrpc"]
 invoicesrpc = ["lightningrpc"]
-all = ["lightningrpc", "walletrpc", "peersrpc", "versionrpc", "routerrpc", "invoicesrpc"]
+staterpc = ["lightningrpc"]
+all = ["lightningrpc", "walletrpc", "peersrpc", "versionrpc", "routerrpc", "invoicesrpc", "staterpc"]
 ring = ["tonic/tls-ring"]
 aws-lc = ["tonic/tls-aws-lc"]
 tls-native-roots = ["tonic/tls-native-roots"]
@@ -32,7 +33,9 @@ default = ["all", "ring", "tls"]
 
 [dependencies]
 hex = "0.4.3"
+http = "1.3.1"
 prost = "0.13"
+thiserror = "2.0.12"
 tokio = { version = "1.32.0", features = ["fs"] }
 tokio-stream = { version = "0.1", features = ["net"], optional = true}
 tonic = { version = "0.13.1", features = ["transport"] }

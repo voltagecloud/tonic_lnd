@@ -14,6 +14,7 @@ fn main() -> std::io::Result<()> {
         "signrpc/signer.proto",
         "walletrpc/walletkit.proto",
         "lightning.proto",
+        "stateservice.proto",
         "peersrpc/peers.proto",
         "verrpc/verrpc.proto",
         "routerrpc/router.proto",

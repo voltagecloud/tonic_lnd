@@ -1,16 +1,16 @@
-LND_VERSION ?= v0.18.5-beta
+LND_VERSION ?= v0.19.1-beta
 LND_REPO_RAW_URL := https://raw.githubusercontent.com/lightningnetwork/lnd/$(LND_VERSION)/lnrpc
 VENDOR_DIR := vendor
 PROTO_DIRS := invoicesrpc peersrpc routerrpc signrpc verrpc walletrpc
 
-ROOT_PROTOS := lightning.proto
+ROOT_PROTOS := lightning.proto stateservice.proto
 
 PROTO_NAMES := invoicesrpc/invoices.proto peersrpc/peers.proto routerrpc/router.proto signrpc/signer.proto verrpc/verrpc.proto walletrpc/walletkit.proto
 SUB_PROTOS := $(addprefix $(VENDOR_DIR)/, $(PROTO_NAMES))
 
 TARGET_PROTOS := $(addprefix $(VENDOR_DIR)/, $(ROOT_PROTOS)) $(SUB_PROTOS)
 
-.PHONY: all clean fetch-protos
+.PHONY: all clean fetch-protos lint fmt clippy machete
 
 all: fetch-protos
 
@@ -37,6 +37,17 @@ clean:
 	@echo "Cleaning vendor directory..."
 	@rm -rf $(VENDOR_DIR)
 
+lint: fmt clippy machete
+
+fmt:
+	cargo +nightly fmt
+
+clippy:
+	cargo clippy
+
+machete:
+	cargo machete --with-metadata
+
 # Example usage:
 # make fetch-protos LND_VERSION=v0.17.0-beta
-# make clean 
+# make clean
