@@ -3,7 +3,7 @@ LND_REPO_RAW_URL := https://raw.githubusercontent.com/lightningnetwork/lnd/$(LND
 VENDOR_DIR := vendor
 PROTO_DIRS := invoicesrpc peersrpc routerrpc signrpc verrpc walletrpc
 
-ROOT_PROTOS := lightning.proto
+ROOT_PROTOS := lightning.proto stateservice.proto
 
 PROTO_NAMES := invoicesrpc/invoices.proto peersrpc/peers.proto routerrpc/router.proto signrpc/signer.proto verrpc/verrpc.proto walletrpc/walletkit.proto
 SUB_PROTOS := $(addprefix $(VENDOR_DIR)/, $(PROTO_NAMES))

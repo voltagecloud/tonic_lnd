@@ -25,7 +25,7 @@ pub type PeersClient = peersrpc::peers_client::PeersClient<Service>;
 #[cfg(feature = "versionrpc")]
 pub type VersionerClient = verrpc::versioner_client::VersionerClient<Service>;
 
-// Convenience type alias for signer client.
+/// Convenience type alias for signer client.
 #[cfg(feature = "signrpc")]
 pub type SignerClient = signrpc::signer_client::SignerClient<Service>;
 
@@ -36,6 +36,10 @@ pub type RouterClient = routerrpc::router_client::RouterClient<Service>;
 /// Convenience type alias for invoices client.
 #[cfg(feature = "invoicesrpc")]
 pub type InvoicesClient = invoicesrpc::invoices_client::InvoicesClient<Service>;
+
+/// Convenience type alias for state service client.
+#[cfg(feature = "staterpc")]
+pub type StateClient = lnrpc::state_client::StateClient<Service>;
 
 /// A builder for configuring and constructing a [`Client`] to connect to LND via gRPC.
 ///
@@ -188,6 +192,8 @@ pub struct Client {
     router: RouterClient,
     #[cfg(feature = "invoicesrpc")]
     invoices: InvoicesClient,
+    #[cfg(feature = "staterpc")]
+    state: StateClient,
 }
 
 impl Client {
@@ -278,6 +284,18 @@ impl Client {
     #[cfg(feature = "invoicesrpc")]
     pub fn invoices_read_only(self) -> InvoicesClient {
         self.invoices
+    }
+
+    /// Returns the state service client.
+    #[cfg(feature = "staterpc")]
+    pub fn state(&mut self) -> &mut StateClient {
+        &mut self.state
+    }
+
+    /// Returns a read-only state service client.
+    #[cfg(feature = "staterpc")]
+    pub fn state_read_only(self) -> StateClient {
+        self.state
     }
 }
 
@@ -411,6 +429,8 @@ async fn do_connect(
             channel.clone(),
             uri.clone(),
         ),
+        #[cfg(feature = "staterpc")]
+        state: lnrpc::state_client::StateClient::with_origin(channel.clone(), uri.clone()),
     };
 
     Ok(client)
