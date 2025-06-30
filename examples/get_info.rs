@@ -4,22 +4,33 @@
 // The program accepts three arguments: address, cert file, macaroon file
 // The address must start with `https://`!
 //
-// Example run: `cargo run --features=lightningrpc --example get_info <address> <tls.cert> <file.macaroon>`
+// Example run: `cargo run --features=lightningrpc --example get_info <address> [tls.cert] <file.macaroon>`
+use fedimint_tonic_lnd::Client;
 
 #[tokio::main]
 #[cfg(feature = "lightningrpc")]
 async fn main() {
     let mut args = std::env::args_os();
     args.next().expect("not even zeroth arg given");
+
     let address = args.next().expect("missing arguments: address, cert file, macaroon file");
-    let cert_file = args.next().expect("missing arguments: cert file, macaroon file");
-    let macaroon_file = args.next().expect("missing argument: macaroon file");
+    let mut macaroon_file = args.next().expect("missing arguments: cert file or macaroon file");
+
+    let mut cert_file = None;
+    if let Some(path) = args.next() {
+        // if we have three arguments, then the cert file was passed.
+        cert_file = Some(macaroon_file);
+        macaroon_file = path;
+    }
+
     let address = address.into_string().expect("address is not UTF-8");
 
-    // Connecting to LND requires only address, cert file, and macaroon file
-    let mut client = fedimint_tonic_lnd::connect(address, cert_file, macaroon_file)
-        .await
-        .expect("failed to connect");
+    let mut client = Client::builder().address(address).macaroon_path(macaroon_file);
+    if let Some(cert_file) = cert_file {
+        client = client.cert_path(cert_file);
+    }
+
+    let mut client = client.build().await.expect("failed to build client");
 
     let info = client
         .lightning()
