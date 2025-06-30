@@ -8,3 +8,4 @@ mod protos;
 pub use client::*;
 pub use error::*;
 pub use protos::*;
+pub use tonic;
