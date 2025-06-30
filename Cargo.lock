@@ -281,6 +281,7 @@ dependencies = [
  "tokio-stream",
  "tonic",
  "tonic-build",
+ "zeroize",
 ]
 
 [[package]]
