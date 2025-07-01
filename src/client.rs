@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::time::Duration;
 
 use tonic::service::interceptor::InterceptedService;
 use tonic::transport::{Certificate, ClientTlsConfig, Endpoint, Uri};
@@ -74,6 +75,7 @@ pub struct ClientBuilder {
     macaroon_contents: Option<Zeroizing<String>>,
     cert_path: Option<PathBuf>,
     cert_contents: Option<String>,
+    timeout: Option<Duration>,
 }
 
 impl Default for ClientBuilder {
@@ -91,6 +93,7 @@ impl ClientBuilder {
             macaroon_contents: None,
             cert_path: None,
             cert_contents: None,
+            timeout: None,
         }
     }
 
@@ -149,6 +152,15 @@ impl ClientBuilder {
         self
     }
 
+    /// Sets the timeout for the all connections.
+    ///
+    /// # Arguments
+    /// * `timeout` - The timeout duration.
+    pub fn timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = Some(timeout);
+        self
+    }
+
     /// Finalizes the builder and attempts to connect to the LND node, returning a [`Client`].
     ///
     /// # Errors
@@ -169,7 +181,7 @@ impl ClientBuilder {
             self.cert_contents.map(|contents| contents.as_bytes().to_vec())
         };
 
-        do_connect(address, cert.map(Certificate::from_pem), macaroon).await
+        do_connect(address, cert.map(Certificate::from_pem), macaroon, self.timeout).await
     }
 }
 /// The client returned by `connect` function
@@ -385,13 +397,18 @@ async fn do_connect(
     address: String,
     certs: Option<Certificate>,
     macaroon: Zeroizing<String>,
+    timeout: Option<Duration>,
 ) -> Result<Client> {
     let mut tls_config = ClientTlsConfig::new().with_enabled_roots();
     if let Some(cert) = certs {
         tls_config = tls_config.ca_certificate(cert);
     }
 
-    let endpoint = Endpoint::from_shared(address.clone())?.tls_config(tls_config)?;
+    let mut endpoint = Endpoint::from_shared(address.clone())?.tls_config(tls_config)?;
+    if let Some(timeout) = timeout {
+        endpoint = endpoint.timeout(timeout);
+    }
+
     let channel = endpoint.connect().await?;
     let channel = InterceptedService::new(
         channel,
