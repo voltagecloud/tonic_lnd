@@ -41,5 +41,5 @@ async fn main() {
 
     // We only print it here, note that in real-life code you may want to call `.into_inner()` on
     // the response to get the message.
-    println!("{:#?}", info);
+    println!("{info:#?}");
 }

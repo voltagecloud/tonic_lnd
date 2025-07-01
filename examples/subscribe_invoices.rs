@@ -36,7 +36,7 @@ async fn main() {
 
         // If this invoice was Settled we can do something with it
         if state == voltage_tonic_lnd::lnrpc::invoice::InvoiceState::Settled {
-            println!("{:?}", invoice);
+            println!("{invoice:?}");
         }
     }
 }

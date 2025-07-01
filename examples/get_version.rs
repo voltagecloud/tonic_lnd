@@ -27,5 +27,5 @@ async fn main() {
         .expect("failed to get version");
     // We only print it here, note that in real-life code you may want to call `.into_inner()` on
     // the response to get the message.
-    println!("{:#?}", version);
+    println!("{version:#?}");
 }
