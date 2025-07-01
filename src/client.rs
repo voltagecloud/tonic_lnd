@@ -353,6 +353,7 @@ async fn load_macaroon(
 ///
 /// If you have a motivating use case for use of direct data feel free to open an issue and
 /// explain.
+#[deprecated(since = "0.2.0", note = "Use `Client::builder` instead.")]
 pub async fn connect<CP, MP>(address: String, cert_file: CP, macaroon_file: MP) -> Result<Client>
 where
     CP: AsRef<Path> + Into<PathBuf> + std::fmt::Debug,
@@ -370,6 +371,7 @@ where
 /// `cert`` is a PEM encoded string
 /// `macaroon`` is a hex-encoded string
 /// These credentials can get out of date! Make sure you are pulling fresh credentials when using this function.
+#[deprecated(since = "0.2.0", note = "Use `Client::builder` instead.")]
 pub async fn connect_from_memory(
     address: impl ToString,
     cert_pem: impl ToString,
@@ -386,6 +388,7 @@ pub async fn connect_from_memory(
 /// connect_from_memory_with_system_certs connects to LND using in-memory macaroon and system certs.
 /// `macaroon`` is a hex-encoded string
 /// These credentials can get out of date! Make sure you are pulling fresh credentials when using this function.
+#[deprecated(since = "0.2.0", note = "Use `Client::builder` instead.")]
 pub async fn connect_from_memory_with_system_certs(
     address: impl ToString,
     macaroon: impl ToString,
