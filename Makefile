@@ -40,10 +40,10 @@ clean:
 lint: fmt clippy machete
 
 fmt:
-	cargo +nightly fmt
+	cargo +nightly fmt --all --check
 
 clippy:
-	cargo clippy
+	cargo clippy --all-targets --all-features --locked
 
 machete:
 	cargo machete --with-metadata

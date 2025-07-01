@@ -34,7 +34,11 @@ async fn main() {
     .expect("payment_hash is not a valid hex");
 
     // Connecting to LND requires only address, cert file, and macaroon file
-    let mut client = voltage_tonic_lnd::connect(address, cert_file, macaroon_file)
+    let mut client = voltage_tonic_lnd::Client::builder()
+        .address(address)
+        .cert_path(cert_file)
+        .macaroon_path(macaroon_file)
+        .build()
         .await
         .expect("failed to connect");
 
@@ -48,7 +52,7 @@ async fn main() {
         .expect("Failed to call track_payment");
 
     if let Some(payment) = response.into_inner().message().await.expect("Failed to get payment") {
-        println!("{:?}", payment);
+        println!("{payment:?}");
     } else {
         println!("Payment not found");
     }

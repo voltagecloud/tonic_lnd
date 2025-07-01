@@ -16,7 +16,11 @@ async fn main() {
     let address = address.into_string().expect("address is not UTF-8");
 
     // Connecting to LND requires only address, cert file, and macaroon file
-    let mut client = voltage_tonic_lnd::connect(address, cert_file, macaroon_file)
+    let mut client = voltage_tonic_lnd::Client::builder()
+        .address(address)
+        .cert_path(cert_file)
+        .macaroon_path(macaroon_file)
+        .build()
         .await
         .expect("failed to connect");
 
@@ -36,7 +40,7 @@ async fn main() {
 
         // If this invoice was Settled we can do something with it
         if state == voltage_tonic_lnd::lnrpc::invoice::InvoiceState::Settled {
-            println!("{:?}", invoice);
+            println!("{invoice:?}");
         }
     }
 }

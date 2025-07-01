@@ -16,7 +16,11 @@ async fn main() {
     let address = address.into_string().expect("address is not UTF-8");
 
     // Connecting to LND requires only address, cert file, and macaroon file
-    let mut client = voltage_tonic_lnd::connect(address, cert_file, macaroon_file)
+    let mut client = voltage_tonic_lnd::Client::builder()
+        .address(address)
+        .cert_path(cert_file)
+        .macaroon_path(macaroon_file)
+        .build()
         .await
         .expect("failed to connect");
 
@@ -27,5 +31,5 @@ async fn main() {
         .expect("failed to get version");
     // We only print it here, note that in real-life code you may want to call `.into_inner()` on
     // the response to get the message.
-    println!("{:#?}", version);
+    println!("{version:#?}");
 }
