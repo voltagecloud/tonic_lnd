@@ -1,4 +1,4 @@
-LND_VERSION ?= v0.19.1-beta
+LND_VERSION ?= v0.19.2-beta
 LND_REPO_RAW_URL := https://raw.githubusercontent.com/lightningnetwork/lnd/$(LND_VERSION)/lnrpc
 VENDOR_DIR := vendor
 PROTO_DIRS := invoicesrpc peersrpc routerrpc signrpc verrpc walletrpc
