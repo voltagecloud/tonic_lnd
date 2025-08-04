@@ -36,3 +36,43 @@ pub mod verrpc {
 pub mod invoicesrpc {
     tonic::include_proto!("invoicesrpc");
 }
+
+#[cfg(feature = "taprpc")]
+pub mod taprpc {
+    tonic::include_proto!("taprpc");
+}
+
+#[cfg(feature = "assetwalletrpc")]
+pub mod assetwalletrpc {
+    tonic::include_proto!("assetwalletrpc");
+}
+
+#[cfg(feature = "mintrpc")]
+pub mod mintrpc {
+    tonic::include_proto!("mintrpc");
+}
+
+#[cfg(feature = "priceoraclerpc")]
+pub mod priceoraclerpc {
+    tonic::include_proto!("priceoraclerpc");
+}
+
+#[cfg(feature = "rfqrpc")]
+pub mod rfqrpc {
+    tonic::include_proto!("rfqrpc");
+}
+
+#[cfg(feature = "tapchannelrpc")]
+pub mod tapchannelrpc {
+    tonic::include_proto!("tapchannelrpc");
+}
+
+#[cfg(feature = "tapdevrpc")]
+pub mod tapdevrpc {
+    tonic::include_proto!("tapdevrpc");
+}
+
+#[cfg(feature = "universerpc")]
+pub mod universerpc {
+    tonic::include_proto!("universerpc");
+}

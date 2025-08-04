@@ -43,6 +43,39 @@ pub type InvoicesClient = invoicesrpc::invoices_client::InvoicesClient<Service>;
 #[cfg(feature = "staterpc")]
 pub type StateClient = lnrpc::state_client::StateClient<Service>;
 
+/// Convenience type alias for taproot assets client.
+#[cfg(feature = "taprpc")]
+pub type TaprootAssetsClient = taprpc::taproot_assets_client::TaprootAssetsClient<Service>;
+
+/// Convenience type alias for asset wallet client.
+#[cfg(feature = "assetwalletrpc")]
+pub type AssetWalletClient = assetwalletrpc::asset_wallet_client::AssetWalletClient<Service>;
+
+/// Convenience type alias for mint client.
+#[cfg(feature = "mintrpc")]
+pub type MintClient = mintrpc::mint_client::MintClient<Service>;
+
+/// Convenience type alias for price oracle client.
+#[cfg(feature = "priceoraclerpc")]
+pub type PriceOracleClient = priceoraclerpc::price_oracle_client::PriceOracleClient<Service>;
+
+/// Convenience type alias for RFQ client.
+#[cfg(feature = "rfqrpc")]
+pub type RfqClient = rfqrpc::rfq_client::RfqClient<Service>;
+
+/// Convenience type alias for tap channel client.
+#[cfg(feature = "tapchannelrpc")]
+pub type TapChannelClient =
+    tapchannelrpc::taproot_asset_channels_client::TaprootAssetChannelsClient<Service>;
+
+/// Convenience type alias for tap dev client.
+#[cfg(feature = "tapdevrpc")]
+pub type TapDevClient = tapdevrpc::tap_dev_client::TapDevClient<Service>;
+
+/// Convenience type alias for universal client.
+#[cfg(feature = "universerpc")]
+pub type UniversalClient = universerpc::universe_client::UniverseClient<Service>;
+
 /// A builder for configuring and constructing a [`Client`] to connect to LND via gRPC.
 ///
 /// This builder allows you to specify connection details, authentication credentials (macaroon),
@@ -205,6 +238,22 @@ pub struct Client {
     invoices: InvoicesClient,
     #[cfg(feature = "staterpc")]
     state: StateClient,
+    #[cfg(feature = "taprpc")]
+    taproot_assets: TaprootAssetsClient,
+    #[cfg(feature = "assetwalletrpc")]
+    asset_wallet: AssetWalletClient,
+    #[cfg(feature = "mintrpc")]
+    mint: MintClient,
+    #[cfg(feature = "priceoraclerpc")]
+    price_oracle: PriceOracleClient,
+    #[cfg(feature = "rfqrpc")]
+    rfq: RfqClient,
+    #[cfg(feature = "tapchannelrpc")]
+    tap_channel: TapChannelClient,
+    #[cfg(feature = "tapdevrpc")]
+    tap_dev: TapDevClient,
+    #[cfg(feature = "universerpc")]
+    universal: UniversalClient,
 }
 
 impl Client {
@@ -307,6 +356,102 @@ impl Client {
     #[cfg(feature = "staterpc")]
     pub fn state_read_only(self) -> StateClient {
         self.state
+    }
+
+    /// Returns the taproot assets client.
+    #[cfg(feature = "taprpc")]
+    pub fn taproot_assets(&mut self) -> &mut TaprootAssetsClient {
+        &mut self.taproot_assets
+    }
+
+    /// Returns a read-only taproot assets client.
+    #[cfg(feature = "taprpc")]
+    pub fn taproot_assets_read_only(self) -> TaprootAssetsClient {
+        self.taproot_assets
+    }
+
+    /// Returns the asset wallet client.
+    #[cfg(feature = "assetwalletrpc")]
+    pub fn asset_wallet(&mut self) -> &mut AssetWalletClient {
+        &mut self.asset_wallet
+    }
+
+    /// Returns a read-only asset wallet client.
+    #[cfg(feature = "assetwalletrpc")]
+    pub fn asset_wallet_read_only(self) -> AssetWalletClient {
+        self.asset_wallet
+    }
+
+    /// Returns the mint client.
+    #[cfg(feature = "mintrpc")]
+    pub fn mint(&mut self) -> &mut MintClient {
+        &mut self.mint
+    }
+
+    /// Returns a read-only mint client.
+    #[cfg(feature = "mintrpc")]
+    pub fn mint_read_only(self) -> MintClient {
+        self.mint
+    }
+
+    /// Returns the price oracle client.
+    #[cfg(feature = "priceoraclerpc")]
+    pub fn price_oracle(&mut self) -> &mut PriceOracleClient {
+        &mut self.price_oracle
+    }
+
+    /// Returns a read-only price oracle client.
+    #[cfg(feature = "priceoraclerpc")]
+    pub fn price_oracle_read_only(self) -> PriceOracleClient {
+        self.price_oracle
+    }
+
+    /// Returns the RFQ client.
+    #[cfg(feature = "rfqrpc")]
+    pub fn rfq(&mut self) -> &mut RfqClient {
+        &mut self.rfq
+    }
+
+    /// Returns a read-only RFQ client.
+    #[cfg(feature = "rfqrpc")]
+    pub fn rfq_read_only(self) -> RfqClient {
+        self.rfq
+    }
+
+    /// Returns the tap channel client.
+    #[cfg(feature = "tapchannelrpc")]
+    pub fn tap_channel(&mut self) -> &mut TapChannelClient {
+        &mut self.tap_channel
+    }
+
+    /// Returns a read-only tap channel client.
+    #[cfg(feature = "tapchannelrpc")]
+    pub fn tap_channel_read_only(self) -> TapChannelClient {
+        self.tap_channel
+    }
+
+    /// Returns the tap dev client.
+    #[cfg(feature = "tapdevrpc")]
+    pub fn tap_dev(&mut self) -> &mut TapDevClient {
+        &mut self.tap_dev
+    }
+
+    /// Returns a read-only tap dev client.
+    #[cfg(feature = "tapdevrpc")]
+    pub fn tap_dev_read_only(self) -> TapDevClient {
+        self.tap_dev
+    }
+
+    /// Returns the universal client.
+    #[cfg(feature = "universerpc")]
+    pub fn universal(&mut self) -> &mut UniversalClient {
+        &mut self.universal
+    }
+
+    /// Returns a read-only universal client.
+    #[cfg(feature = "universerpc")]
+    pub fn universal_read_only(self) -> UniversalClient {
+        self.universal
     }
 }
 
@@ -451,6 +596,35 @@ async fn do_connect(
         ),
         #[cfg(feature = "staterpc")]
         state: lnrpc::state_client::StateClient::with_origin(channel.clone(), uri.clone()),
+        #[cfg(feature = "taprpc")]
+        taproot_assets: taprpc::taproot_assets_client::TaprootAssetsClient::with_origin(
+            channel.clone(),
+            uri.clone(),
+        ),
+        #[cfg(feature = "assetwalletrpc")]
+        asset_wallet: assetwalletrpc::asset_wallet_client::AssetWalletClient::with_origin(
+            channel.clone(),
+            uri.clone(),
+        ),
+        #[cfg(feature = "mintrpc")]
+        mint: mintrpc::mint_client::MintClient::with_origin(channel.clone(), uri.clone()),
+        #[cfg(feature = "priceoraclerpc")]
+        price_oracle: priceoraclerpc::price_oracle_client::PriceOracleClient::with_origin(
+            channel.clone(),
+            uri.clone(),
+        ),
+        #[cfg(feature = "rfqrpc")]
+        rfq: rfqrpc::rfq_client::RfqClient::with_origin(channel.clone(), uri.clone()),
+        #[cfg(feature = "tapchannelrpc")]
+        tap_channel:
+            tapchannelrpc::taproot_asset_channels_client::TaprootAssetChannelsClient::with_origin(
+                channel.clone(),
+                uri.clone(),
+            ),
+        #[cfg(feature = "tapdevrpc")]
+        tap_dev: tapdevrpc::tap_dev_client::TapDevClient::with_origin(channel.clone(), uri.clone()),
+        #[cfg(feature = "universerpc")]
+        universal: universerpc::universe_client::UniverseClient::with_origin(channel, uri),
     };
 
     Ok(client)
