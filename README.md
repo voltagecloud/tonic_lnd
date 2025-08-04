@@ -20,11 +20,23 @@ This crate supports the following LND RPC APIs (from LND [v0.19.1-beta](https://
 - [State](https://lightning.engineering/api-docs/category/state-service)
 - [Versioner](https://lightning.engineering/api-docs/category/versioner-service)
 
+This crate also supports [Taproot Assets](https://github.com/lightninglabs/taproot-assets) RPC APIs (from Taproot Assets [v0.6.1](https://github.com/lightninglabs/taproot-assets/tree/v0.6.1)):
+- [TaprootAssets](https://github.com/lightninglabs/taproot-assets/blob/main/taprpc/taprootassets.proto) (core Taproot Assets API)
+- [AssetWallet](https://github.com/lightninglabs/taproot-assets/blob/main/taprpc/assetwalletrpc/assetwallet.proto) (asset wallet management)
+- [Mint](https://github.com/lightninglabs/taproot-assets/blob/main/taprpc/mintrpc/mint.proto) (asset minting)
+- [PriceOracle](https://github.com/lightninglabs/taproot-assets/blob/main/taprpc/priceoraclerpc/price_oracle.proto) (price oracle service)
+- [RFQ](https://github.com/lightninglabs/taproot-assets/blob/main/taprpc/rfqrpc/rfq.proto) (request for quote)
+- [TapChannel](https://github.com/lightninglabs/taproot-assets/blob/main/taprpc/tapchannelrpc/tapchannel.proto) (Taproot Asset channels)
+- [TapDev](https://github.com/lightninglabs/taproot-assets/blob/main/taprpc/tapdevrpc/tapdev.proto) (development tools)
+- [Universe](https://github.com/lightninglabs/taproot-assets/blob/main/taprpc/universerpc/universe.proto) (universe server)
+
 This crate implements LND gRPC using [`tonic`](https://docs.rs/tonic/) and [`prost`](https://docs.rs/prost/), providing async usage and vendored `*.proto` files (LND source not required by default). You can override the proto files at build time by setting the `LND_REPO_DIR` environment variable, to test against unreleased LND features.
 
 ## Features & Cargo Flags
 
 Each RPC API is behind a Cargo feature flag. All features are enabled by default, but you can select a subset for slimmer builds. See the `[features]` section in `Cargo.toml` for details. Example features:
+
+**LND Features:**
 - `lightningrpc` (core Lightning API)
 - `walletrpc` (WalletKit, depends on `signrpc`)
 - `signrpc` (Signer)
@@ -33,8 +45,24 @@ Each RPC API is behind a Cargo feature flag. All features are enabled by default
 - `invoicesrpc` (Invoices)
 - `staterpc` (State)
 - `versionrpc` (Versioner)
-- `all` (enables all RPCs)
-- TLS backend selection: `ring`, `aws-lc`,
+- `lightning` (enables all LND RPCs)
+
+**Taproot Assets Features:**
+- `taprpc` (core Taproot Assets API)
+- `assetwalletrpc` (asset wallet management)
+- `mintrpc` (asset minting)
+- `priceoraclerpc` (price oracle service)
+- `rfqrpc` (request for quote)
+- `tapchannelrpc` (Taproot Asset channels)
+- `tapdevrpc` (development tools)
+- `universerpc` (universe server)
+- `taprootassets` (enables all Taproot Assets RPCs)
+
+**Meta Features:**
+- `all` (enables all LND and Taproot Assets RPCs)
+
+**TLS Configuration:**
+- TLS backend selection: `ring`, `aws-lc`
 - TLS root CA selection: `tls-native-roots`, `tls-webpki-roots`, `tls`
 
 At least one TLS backend is required. `ring` is currently used as the default.
@@ -61,7 +89,13 @@ By default, all features are enabled. To customize, specify features:
 voltage-tonic-lnd = { version = "0.1", default-features = false, features = ["lightningrpc", "routerrpc", "aws-lc", "tls-native-roots"] }
 ```
 
-If you need to override the proto files, set the `LND_REPO_DIR` environment variable to a directory with a cloned [`lnd`](https://github.com/lightningnetwork/lnd.git) repo during build.
+To use Taproot Assets features:
+
+```toml
+voltage-tonic-lnd = { version = "0.1", default-features = false, features = ["lightningrpc", "taprootassets", "ring", "tls-native-roots"] }
+```
+
+If you need to override the proto files, set the `LND_REPO_DIR` environment variable to a directory with a cloned [`lnd`](https://github.com/lightningnetwork/lnd.git) repo during build. For Taproot Assets proto files, set the `TAPROOT_ASSETS_REPO_DIR` environment variable to a directory with a cloned [`taproot-assets`](https://github.com/lightninglabs/taproot-assets.git) repo.
 
 ### Example: Connect and Get Info
 

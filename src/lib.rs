@@ -85,6 +85,7 @@
 
 #![allow(clippy::large_enum_variant)]
 #![allow(clippy::doc_lazy_continuation)]
+#![allow(clippy::doc_overindented_list_items)]
 
 mod client;
 mod error;
