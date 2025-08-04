@@ -45,7 +45,7 @@ fn main() -> std::io::Result<()> {
 
     let tap_proto_paths: Vec<_> = protos.iter().map(|proto| tap_dir.join(proto)).collect();
 
-    tonic_build::configure().build_client(true).build_server(false).compile_protos(
+    tonic_prost_build::configure().build_client(true).build_server(false).compile_protos(
         &lnd_proto_paths.into_iter().chain(tap_proto_paths).collect::<Vec<_>>(),
         &[lnd_dir, tap_dir],
     )?;
