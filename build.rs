@@ -44,10 +44,31 @@ fn main() -> std::io::Result<()> {
     ];
 
     let tap_proto_paths: Vec<_> = protos.iter().map(|proto| tap_dir.join(proto)).collect();
+    let all_protos: Vec<_> = lnd_proto_paths.into_iter().chain(tap_proto_paths).collect();
+    let include_dirs = &[lnd_dir, tap_dir];
 
-    tonic_prost_build::configure().build_client(true).build_server(false).compile_protos(
-        &lnd_proto_paths.into_iter().chain(tap_proto_paths).collect::<Vec<_>>(),
-        &[lnd_dir, tap_dir],
-    )?;
+    #[cfg(feature = "serde")]
+    {
+        let descriptor_path = std::path::PathBuf::from(std::env::var("OUT_DIR").unwrap())
+            .join("proto_descriptor.bin");
+
+        tonic_prost_build::configure()
+            .build_client(true)
+            .build_server(false)
+            .file_descriptor_set_path(&descriptor_path)
+            .compile_protos(&all_protos, include_dirs)?;
+
+        let descriptor_set = std::fs::read(&descriptor_path)?;
+        pbjson_build::Builder::new().register_descriptors(&descriptor_set)?.build(&["."])?;
+    }
+
+    #[cfg(not(feature = "serde"))]
+    {
+        tonic_prost_build::configure()
+            .build_client(true)
+            .build_server(false)
+            .compile_protos(&all_protos, include_dirs)?;
+    }
+
     Ok(())
 }

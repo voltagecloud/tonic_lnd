@@ -39,6 +39,7 @@ aws-lc = ["tonic/tls-aws-lc"]
 tls-native-roots = ["tonic/tls-native-roots"]
 tls-webpki-roots = ["tonic/tls-webpki-roots"]
 tls = ["tls-native-roots", "tls-webpki-roots"]
+serde = ["dep:serde", "dep:pbjson", "dep:pbjson-types", "dep:pbjson-build"]
 default = ["lightning", "ring", "tls"]
 
 [dependencies]
@@ -51,9 +52,13 @@ tokio = { version = "1.32.0", features = ["fs"] }
 tokio-stream = { version = "0.1", features = ["net"], optional = true}
 tonic = { version = "0.14.0", features = ["transport"] }
 zeroize = "1.8.1"
+serde = { version = "1.0", features = ["derive"], optional = true }
+pbjson = { version = "0.7", optional = true }
+pbjson-types = { version = "0.7", optional = true }
 
 [build-dependencies]
 tonic-prost-build = "0.14.0"
+pbjson-build = { version = "0.7", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1.32.0", features = ["rt-multi-thread"] }

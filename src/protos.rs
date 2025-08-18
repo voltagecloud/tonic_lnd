@@ -5,74 +5,119 @@
 #[cfg(feature = "lightningrpc")]
 pub mod lnrpc {
     tonic::include_proto!("lnrpc");
+
+    #[cfg(feature = "serde")]
+    include!(concat!(env!("OUT_DIR"), "/lnrpc.serde.rs"));
 }
 
 #[cfg(feature = "walletrpc")]
 pub mod walletrpc {
     tonic::include_proto!("walletrpc");
+
+    #[cfg(feature = "serde")]
+    include!(concat!(env!("OUT_DIR"), "/walletrpc.serde.rs"));
 }
 
 #[cfg(feature = "signrpc")]
 pub mod signrpc {
     tonic::include_proto!("signrpc");
+
+    #[cfg(feature = "serde")]
+    include!(concat!(env!("OUT_DIR"), "/signrpc.serde.rs"));
 }
 
 #[cfg(feature = "peersrpc")]
 pub mod peersrpc {
     tonic::include_proto!("peersrpc");
+
+    #[cfg(feature = "serde")]
+    include!(concat!(env!("OUT_DIR"), "/peersrpc.serde.rs"));
 }
 
 #[cfg(feature = "routerrpc")]
 pub mod routerrpc {
     tonic::include_proto!("routerrpc");
+
+    #[cfg(feature = "serde")]
+    include!(concat!(env!("OUT_DIR"), "/routerrpc.serde.rs"));
 }
 
 #[cfg(feature = "versionrpc")]
 pub mod verrpc {
     tonic::include_proto!("verrpc");
+
+    #[cfg(feature = "serde")]
+    include!(concat!(env!("OUT_DIR"), "/verrpc.serde.rs"));
 }
 
 #[cfg(feature = "invoicesrpc")]
 pub mod invoicesrpc {
     tonic::include_proto!("invoicesrpc");
+
+    #[cfg(feature = "serde")]
+    include!(concat!(env!("OUT_DIR"), "/invoicesrpc.serde.rs"));
 }
 
 #[cfg(feature = "taprpc")]
 pub mod taprpc {
     tonic::include_proto!("taprpc");
+
+    #[cfg(feature = "serde")]
+    include!(concat!(env!("OUT_DIR"), "/taprpc.serde.rs"));
 }
 
 #[cfg(feature = "assetwalletrpc")]
 pub mod assetwalletrpc {
     tonic::include_proto!("assetwalletrpc");
+
+    #[cfg(feature = "serde")]
+    include!(concat!(env!("OUT_DIR"), "/assetwalletrpc.serde.rs"));
 }
 
 #[cfg(feature = "mintrpc")]
 pub mod mintrpc {
     tonic::include_proto!("mintrpc");
+
+    #[cfg(feature = "serde")]
+    include!(concat!(env!("OUT_DIR"), "/mintrpc.serde.rs"));
 }
 
 #[cfg(feature = "priceoraclerpc")]
 pub mod priceoraclerpc {
     tonic::include_proto!("priceoraclerpc");
+
+    #[cfg(feature = "serde")]
+    include!(concat!(env!("OUT_DIR"), "/priceoraclerpc.serde.rs"));
 }
 
 #[cfg(feature = "rfqrpc")]
 pub mod rfqrpc {
     tonic::include_proto!("rfqrpc");
+
+    #[cfg(feature = "serde")]
+    include!(concat!(env!("OUT_DIR"), "/rfqrpc.serde.rs"));
 }
 
 #[cfg(feature = "tapchannelrpc")]
 pub mod tapchannelrpc {
     tonic::include_proto!("tapchannelrpc");
+
+    #[cfg(feature = "serde")]
+    include!(concat!(env!("OUT_DIR"), "/tapchannelrpc.serde.rs"));
 }
 
 #[cfg(feature = "tapdevrpc")]
 pub mod tapdevrpc {
     tonic::include_proto!("tapdevrpc");
+
+    #[cfg(feature = "serde")]
+    include!(concat!(env!("OUT_DIR"), "/tapdevrpc.serde.rs"));
 }
 
 #[cfg(feature = "universerpc")]
 pub mod universerpc {
     tonic::include_proto!("universerpc");
+
+    #[cfg(feature = "serde")]
+    include!(concat!(env!("OUT_DIR"), "/universerpc.serde.rs"));
 }
