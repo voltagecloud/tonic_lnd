@@ -109,6 +109,11 @@ pub struct ClientBuilder {
     cert_path: Option<PathBuf>,
     cert_contents: Option<String>,
     timeout: Option<Duration>,
+    connect_timeout: Option<Duration>,
+    tcp_keepalive: Option<Duration>,
+    http2_keep_alive_interval: Option<Duration>,
+    http2_keep_alive_timeout: Option<Duration>,
+    http2_keep_alive_while_idle: Option<bool>,
 }
 
 impl Default for ClientBuilder {
@@ -127,6 +132,11 @@ impl ClientBuilder {
             cert_path: None,
             cert_contents: None,
             timeout: None,
+            connect_timeout: None,
+            tcp_keepalive: None,
+            http2_keep_alive_interval: None,
+            http2_keep_alive_timeout: None,
+            http2_keep_alive_while_idle: None,
         }
     }
 
@@ -194,6 +204,58 @@ impl ClientBuilder {
         self
     }
 
+    /// Sets the timeout for establishing a new connection (TCP + TLS handshake).
+    /// Without this, a connection attempt to an unreachable node hangs for the
+    /// OS TCP timeout (~2 min on Linux). This also applies to lazy reconnections
+    /// when the underlying HTTP/2 connection dies.
+    ///
+    /// # Arguments
+    /// * `timeout` - The connect timeout duration.
+    pub fn connect_timeout(mut self, timeout: Duration) -> Self {
+        self.connect_timeout = Some(timeout);
+        self
+    }
+
+    /// Sets the TCP keepalive interval. The OS will send keepalive probes on
+    /// idle connections to detect dead peers. Recommended for long-lived
+    /// streaming connections.
+    ///
+    /// # Arguments
+    /// * `interval` - How often to send TCP keepalive probes.
+    pub fn tcp_keepalive(mut self, interval: Duration) -> Self {
+        self.tcp_keepalive = Some(interval);
+        self
+    }
+
+    /// Sets the interval for HTTP/2 PING frames. These detect application-level
+    /// stalls even when the TCP connection is alive (e.g. a proxy silently
+    /// dropping packets).
+    ///
+    /// # Arguments
+    /// * `interval` - How often to send HTTP/2 PING frames.
+    pub fn http2_keep_alive_interval(mut self, interval: Duration) -> Self {
+        self.http2_keep_alive_interval = Some(interval);
+        self
+    }
+
+    /// Sets how long to wait for an HTTP/2 PING response before considering
+    /// the connection dead.
+    ///
+    /// # Arguments
+    /// * `timeout` - The timeout duration for PING responses.
+    pub fn http2_keep_alive_timeout(mut self, timeout: Duration) -> Self {
+        self.http2_keep_alive_timeout = Some(timeout);
+        self
+    }
+
+    /// If `true`, HTTP/2 PING frames are sent even when there are no active
+    /// streams. Essential for detecting dead idle connections on long-lived
+    /// streaming clients.
+    pub fn http2_keep_alive_while_idle(mut self, enabled: bool) -> Self {
+        self.http2_keep_alive_while_idle = Some(enabled);
+        self
+    }
+
     /// Finalizes the builder and attempts to connect to the LND node, returning a [`Client`].
     ///
     /// # Errors
@@ -214,7 +276,18 @@ impl ClientBuilder {
             self.cert_contents.map(|contents| contents.as_bytes().to_vec())
         };
 
-        do_connect(address, cert.map(Certificate::from_pem), macaroon, self.timeout).await
+        do_connect(
+            address,
+            cert.map(Certificate::from_pem),
+            macaroon,
+            self.timeout,
+            self.connect_timeout,
+            self.tcp_keepalive,
+            self.http2_keep_alive_interval,
+            self.http2_keep_alive_timeout,
+            self.http2_keep_alive_while_idle,
+        )
+        .await
     }
 }
 /// The client returned by `connect` function
@@ -541,11 +614,17 @@ pub async fn connect_from_memory_with_system_certs(
     Client::builder().address(address).macaroon_contents(macaroon).build().await
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn do_connect(
     address: String,
     certs: Option<Certificate>,
     macaroon: Zeroizing<String>,
     timeout: Option<Duration>,
+    connect_timeout: Option<Duration>,
+    tcp_keepalive: Option<Duration>,
+    http2_keep_alive_interval: Option<Duration>,
+    http2_keep_alive_timeout: Option<Duration>,
+    http2_keep_alive_while_idle: Option<bool>,
 ) -> Result<Client> {
     let mut tls_config = ClientTlsConfig::new().with_enabled_roots();
     if let Some(cert) = certs {
@@ -555,6 +634,21 @@ async fn do_connect(
     let mut endpoint = Endpoint::from_shared(address.clone())?.tls_config(tls_config)?;
     if let Some(timeout) = timeout {
         endpoint = endpoint.timeout(timeout);
+    }
+    if let Some(connect_timeout) = connect_timeout {
+        endpoint = endpoint.connect_timeout(connect_timeout);
+    }
+    if let Some(tcp_keepalive) = tcp_keepalive {
+        endpoint = endpoint.tcp_keepalive(Some(tcp_keepalive));
+    }
+    if let Some(interval) = http2_keep_alive_interval {
+        endpoint = endpoint.http2_keep_alive_interval(interval);
+    }
+    if let Some(timeout) = http2_keep_alive_timeout {
+        endpoint = endpoint.keep_alive_timeout(timeout);
+    }
+    if let Some(enabled) = http2_keep_alive_while_idle {
+        endpoint = endpoint.keep_alive_while_idle(enabled);
     }
 
     let channel = endpoint.connect().await?;
