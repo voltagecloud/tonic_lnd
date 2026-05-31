@@ -1245,6 +1245,7 @@ dependencies = [
  "hex",
  "http",
  "prost",
+ "rustls",
  "thiserror",
  "tokio",
  "tokio-stream",

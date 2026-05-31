@@ -1,9 +1,17 @@
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 
+use rustls::{
+    client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier},
+    client::WebPkiServerVerifier,
+    crypto::{verify_tls12_signature, verify_tls13_signature, CryptoProvider},
+    pki_types::{pem::PemObject, CertificateDer, ServerName, UnixTime},
+    CertificateError, DigitallySignedStruct, Error as RustlsError, RootCertStore, SignatureScheme,
+};
 use tonic::service::interceptor::InterceptedService;
-use tonic::transport::{Certificate, ClientTlsConfig, Endpoint, Uri};
+use tonic::transport::{ClientTlsConfig, Endpoint, Uri};
 use zeroize::Zeroizing;
 
 use crate::error::{Error, Result};
@@ -278,7 +286,7 @@ impl ClientBuilder {
 
         do_connect(
             address,
-            cert.map(Certificate::from_pem),
+            cert.map(PinnedCertificateVerifier::from_pem),
             macaroon,
             self.timeout,
             self.connect_timeout,
@@ -617,7 +625,7 @@ pub async fn connect_from_memory_with_system_certs(
 #[allow(clippy::too_many_arguments)]
 async fn do_connect(
     address: String,
-    certs: Option<Certificate>,
+    certs: Option<Result<PinnedCertificateVerifier>>,
     macaroon: Zeroizing<String>,
     timeout: Option<Duration>,
     connect_timeout: Option<Duration>,
@@ -626,12 +634,15 @@ async fn do_connect(
     http2_keep_alive_timeout: Option<Duration>,
     http2_keep_alive_while_idle: Option<bool>,
 ) -> Result<Client> {
-    let mut tls_config = ClientTlsConfig::new().with_enabled_roots();
-    if let Some(cert) = certs {
-        tls_config = tls_config.ca_certificate(cert);
-    }
-
-    let mut endpoint = Endpoint::from_shared(address.clone())?.tls_config(tls_config)?;
+    let mut endpoint = Endpoint::from_shared(address.clone())?;
+    endpoint = if let Some(verifier) = certs {
+        endpoint.tls_config_with_verifier(
+            ClientTlsConfig::new().assume_http2(true),
+            Arc::new(verifier?),
+        )?
+    } else {
+        endpoint.tls_config(ClientTlsConfig::new().with_enabled_roots())?
+    };
     if let Some(timeout) = timeout {
         endpoint = endpoint.timeout(timeout);
     }
@@ -722,4 +733,108 @@ async fn do_connect(
     };
 
     Ok(client)
+}
+
+#[derive(Debug)]
+struct PinnedCertificateVerifier {
+    exact_certs: Vec<CertificateDer<'static>>,
+    standard_verifier: Option<Arc<WebPkiServerVerifier>>,
+    provider: Arc<CryptoProvider>,
+}
+
+impl PinnedCertificateVerifier {
+    fn from_pem(pem: Vec<u8>) -> Result<Self> {
+        let exact_certs = CertificateDer::pem_slice_iter(&pem)
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(|error| Error::InvalidCertificate(error.to_string()))?;
+        if exact_certs.is_empty() {
+            return Err(Error::InvalidCertificate("no PEM certificates found".to_string()));
+        }
+
+        let provider = CryptoProvider::get_default()
+            .cloned()
+            .unwrap_or_else(|| Arc::new(rustls::crypto::ring::default_provider()));
+        let mut roots = RootCertStore::empty();
+        let (valid_roots, _) = roots.add_parsable_certificates(exact_certs.clone());
+        let standard_verifier = if valid_roots > 0 {
+            WebPkiServerVerifier::builder_with_provider(Arc::new(roots), provider.clone())
+                .build()
+                .ok()
+        } else {
+            None
+        };
+
+        Ok(Self {
+            exact_certs,
+            standard_verifier,
+            provider,
+        })
+    }
+
+    fn try_exact_match(
+        &self,
+        end_entity: &CertificateDer<'_>,
+        intermediates: &[CertificateDer<'_>],
+    ) -> bool {
+        if self.exact_certs.len() == 1 {
+            return self.exact_certs[0].as_ref() == end_entity.as_ref();
+        }
+
+        let presented = std::iter::once(end_entity).chain(intermediates.iter()).collect::<Vec<_>>();
+        self.exact_certs.len() == presented.len()
+            && self
+                .exact_certs
+                .iter()
+                .zip(presented)
+                .all(|(expected, presented)| expected.as_ref() == presented.as_ref())
+    }
+}
+
+impl ServerCertVerifier for PinnedCertificateVerifier {
+    fn verify_server_cert(
+        &self,
+        end_entity: &CertificateDer<'_>,
+        intermediates: &[CertificateDer<'_>],
+        server_name: &ServerName<'_>,
+        ocsp_response: &[u8],
+        now: UnixTime,
+    ) -> std::result::Result<ServerCertVerified, RustlsError> {
+        if self.try_exact_match(end_entity, intermediates) {
+            return Ok(ServerCertVerified::assertion());
+        }
+
+        if let Some(verifier) = &self.standard_verifier {
+            return verifier.verify_server_cert(
+                end_entity,
+                intermediates,
+                server_name,
+                ocsp_response,
+                now,
+            );
+        }
+
+        Err(RustlsError::InvalidCertificate(CertificateError::UnknownIssuer))
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
+    ) -> std::result::Result<HandshakeSignatureValid, RustlsError> {
+        verify_tls12_signature(message, cert, dss, &self.provider.signature_verification_algorithms)
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
+    ) -> std::result::Result<HandshakeSignatureValid, RustlsError> {
+        verify_tls13_signature(message, cert, dss, &self.provider.signature_verification_algorithms)
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        self.provider.signature_verification_algorithms.supported_schemes()
+    }
 }

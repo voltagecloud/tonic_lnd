@@ -8,6 +8,8 @@ pub enum Error {
     Tonic(#[from] tonic::transport::Error),
     #[error("Invalid address: {0}")]
     InvalidAddress(#[from] http::uri::InvalidUri),
+    #[error("Invalid TLS certificate: {0}")]
+    InvalidCertificate(String),
     #[error("Missing address")]
     MissingAddress,
     #[error("Missing macaroon")]
