@@ -27,7 +27,8 @@ versionrpc = []
 routerrpc = ["lightningrpc"]
 invoicesrpc = ["lightningrpc"]
 staterpc = ["lightningrpc"]
-lightning = ["lightningrpc", "walletrpc", "peersrpc", "versionrpc", "routerrpc", "invoicesrpc", "staterpc"]
+chainrpc = []
+lightning = ["lightningrpc", "walletrpc", "peersrpc", "versionrpc", "routerrpc", "invoicesrpc", "staterpc", "chainrpc"]
 taprpc = []
 assetwalletrpc = ["taprpc"]
 mintrpc = ["taprpc"]
@@ -47,14 +48,14 @@ default = ["lightning", "ring", "tls"]
 
 [dependencies]
 hex = "0.4.3"
-http = "1.4.0"
-prost = "0.14.3"
-tonic-prost = "0.14.5"
+http = "1.4.2"
+prost = "0.14.4"
+tonic-prost = "0.14.6"
 thiserror = "2.0.18"
 tokio = { version = "1.50.0", features = ["fs"] }
 tokio-stream = { version = "0.1", features = ["net"], optional = true}
 tonic = { version = "0.14.6", features = ["transport"] }
-zeroize = "1.8.2"
+zeroize = "1.9.0"
 
 [build-dependencies]
 tonic-prost-build = "0.14.6"

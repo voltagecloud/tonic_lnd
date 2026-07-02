@@ -10,7 +10,7 @@ Rust implementation of LND RPC client using async gRPC library `tonic`.
 **Warning: this crate is in early development and may have unknown problems!
 Review it before using with mainnet funds!**
 
-This crate supports the following LND RPC APIs (from LND [v0.19.1-beta](https://github.com/lightningnetwork/lnd/tree/v0.19.1-beta)):
+This crate supports the following LND RPC APIs (from LND [v0.21.1-beta](https://github.com/lightningnetwork/lnd/tree/v0.21.1-beta)):
 - [Lightning](https://lightning.engineering/api-docs/category/lightning-service)
 - [WalletKit](https://lightning.engineering/api-docs/category/walletkit-service)
 - [Signer](https://lightning.engineering/api-docs/category/signer-service)
@@ -18,6 +18,8 @@ This crate supports the following LND RPC APIs (from LND [v0.19.1-beta](https://
 - [Router](https://lightning.engineering/api-docs/category/router-service)
 - [Invoices](https://lightning.engineering/api-docs/category/invoices-service)
 - [State](https://lightning.engineering/api-docs/category/state-service)
+- [ChainNotifier](https://lightning.engineering/api-docs/category/chainnotifier-service)
+- [ChainKit](https://lightning.engineering/api-docs/category/chainkit-service)
 - [Versioner](https://lightning.engineering/api-docs/category/versioner-service)
 
 This crate also supports [Taproot Assets](https://github.com/lightninglabs/taproot-assets) RPC APIs (from Taproot Assets [v0.6.1](https://github.com/lightninglabs/taproot-assets/tree/v0.6.1)):
@@ -44,6 +46,7 @@ Each RPC API is behind a Cargo feature flag. All features are enabled by default
 - `routerrpc` (Router)
 - `invoicesrpc` (Invoices)
 - `staterpc` (State)
+- `chainrpc` (ChainNotifier and ChainKit)
 - `versionrpc` (Versioner)
 - `lightning` (enables all LND RPCs)
 
@@ -95,6 +98,12 @@ To use Taproot Assets features:
 voltage-tonic-lnd = { version = "0.1", default-features = false, features = ["lightningrpc", "taprootassets", "ring", "tls-native-roots"] }
 ```
 
+To use chain confirmation APIs without the full default feature set:
+
+```toml
+voltage-tonic-lnd = { version = "0.1", default-features = false, features = ["chainrpc", "ring", "tls-native-roots"] }
+```
+
 If you need to override the proto files, set the `LND_REPO_DIR` environment variable to a directory with a cloned [`lnd`](https://github.com/lightningnetwork/lnd.git) repo during build. For Taproot Assets proto files, set the `TAPROOT_ASSETS_REPO_DIR` environment variable to a directory with a cloned [`taproot-assets`](https://github.com/lightninglabs/taproot-assets.git) repo.
 
 ### Example: Connect and Get Info
@@ -117,7 +126,34 @@ async fn main() -> voltage_tonic_lnd::Result<()> {
 }
 ```
 
-See more [examples in the repo](https://github.com/voltagecloud/tonic-lnd/tree/master/examples) for advanced usage (router, invoices, payments, intercept HTLCs, etc).
+See more [examples in the repo](https://github.com/voltagecloud/tonic_lnd/tree/master/examples) for advanced usage (router, invoices, payments, intercept HTLCs, etc).
+
+### Example: Chain Confirmation APIs
+
+```rust
+let mut client = voltage_tonic_lnd::Client::builder()
+    .address("https://localhost:10009")
+    .macaroon_contents(hex_macaroon_string)
+    .cert_contents(pem_cert_string)
+    .build()
+    .await?;
+
+let best_block = client
+    .chain_kit()
+    .get_best_block(voltage_tonic_lnd::chainrpc::GetBestBlockRequest {})
+    .await?;
+
+let confirmation_stream = client
+    .chain_notifier()
+    .register_confirmations_ntfn(voltage_tonic_lnd::chainrpc::ConfRequest {
+        txid,
+        script,
+        num_confs: 1,
+        height_hint: best_block.into_inner().block_height as u32,
+        include_block: false,
+    })
+    .await?;
+```
 
 ### Alternative: In-Memory Credentials
 
