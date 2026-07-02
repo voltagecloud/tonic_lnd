@@ -37,6 +37,11 @@ pub mod invoicesrpc {
     tonic::include_proto!("invoicesrpc");
 }
 
+#[cfg(feature = "chainrpc")]
+pub mod chainrpc {
+    tonic::include_proto!("chainrpc");
+}
+
 #[cfg(feature = "taprpc")]
 pub mod taprpc {
     tonic::include_proto!("taprpc");

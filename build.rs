@@ -11,6 +11,8 @@ fn main() -> std::io::Result<()> {
     println!("cargo:rerun-if-changed={}", proto_file.display());
 
     let protos = [
+        "chainrpc/chainkit.proto",
+        "chainrpc/chainnotifier.proto",
         "invoicesrpc/invoices.proto",
         "lightning.proto",
         "peersrpc/peers.proto",

@@ -43,6 +43,14 @@ pub type InvoicesClient = invoicesrpc::invoices_client::InvoicesClient<Service>;
 #[cfg(feature = "staterpc")]
 pub type StateClient = lnrpc::state_client::StateClient<Service>;
 
+/// Convenience type alias for chain notifier client.
+#[cfg(feature = "chainrpc")]
+pub type ChainNotifierClient = chainrpc::chain_notifier_client::ChainNotifierClient<Service>;
+
+/// Convenience type alias for chain kit client.
+#[cfg(feature = "chainrpc")]
+pub type ChainKitClient = chainrpc::chain_kit_client::ChainKitClient<Service>;
+
 /// Convenience type alias for taproot assets client.
 #[cfg(feature = "taprpc")]
 pub type TaprootAssetsClient = taprpc::taproot_assets_client::TaprootAssetsClient<Service>;
@@ -311,6 +319,10 @@ pub struct Client {
     invoices: InvoicesClient,
     #[cfg(feature = "staterpc")]
     state: StateClient,
+    #[cfg(feature = "chainrpc")]
+    chain_notifier: ChainNotifierClient,
+    #[cfg(feature = "chainrpc")]
+    chain_kit: ChainKitClient,
     #[cfg(feature = "taprpc")]
     taproot_assets: TaprootAssetsClient,
     #[cfg(feature = "assetwalletrpc")]
@@ -429,6 +441,30 @@ impl Client {
     #[cfg(feature = "staterpc")]
     pub fn state_read_only(self) -> StateClient {
         self.state
+    }
+
+    /// Returns the chain notifier client.
+    #[cfg(feature = "chainrpc")]
+    pub fn chain_notifier(&mut self) -> &mut ChainNotifierClient {
+        &mut self.chain_notifier
+    }
+
+    /// Returns a read-only chain notifier client.
+    #[cfg(feature = "chainrpc")]
+    pub fn chain_notifier_read_only(self) -> ChainNotifierClient {
+        self.chain_notifier
+    }
+
+    /// Returns the chain kit client.
+    #[cfg(feature = "chainrpc")]
+    pub fn chain_kit(&mut self) -> &mut ChainKitClient {
+        &mut self.chain_kit
+    }
+
+    /// Returns a read-only chain kit client.
+    #[cfg(feature = "chainrpc")]
+    pub fn chain_kit_read_only(self) -> ChainKitClient {
+        self.chain_kit
     }
 
     /// Returns the taproot assets client.
@@ -690,6 +726,16 @@ async fn do_connect(
         ),
         #[cfg(feature = "staterpc")]
         state: lnrpc::state_client::StateClient::with_origin(channel.clone(), uri.clone()),
+        #[cfg(feature = "chainrpc")]
+        chain_notifier: chainrpc::chain_notifier_client::ChainNotifierClient::with_origin(
+            channel.clone(),
+            uri.clone(),
+        ),
+        #[cfg(feature = "chainrpc")]
+        chain_kit: chainrpc::chain_kit_client::ChainKitClient::with_origin(
+            channel.clone(),
+            uri.clone(),
+        ),
         #[cfg(feature = "taprpc")]
         taproot_assets: taprpc::taproot_assets_client::TaprootAssetsClient::with_origin(
             channel.clone(),
